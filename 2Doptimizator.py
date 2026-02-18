@@ -7,7 +7,7 @@ from typing import Tuple, List, Dict, Callable, Optional
 import warnings
 warnings.filterwarnings('ignore')
 
-from main import UniverseParameters, UniverseAnalyzer, UniversalConstants
+from multiverse_tester import UniverseParameters, UniverseAnalyzer, UniversalConstants
 
 # ==================== ОПТИМИЗАТОР ВСЕЛЕННОЙ ====================
 

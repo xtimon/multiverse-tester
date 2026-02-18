@@ -17,45 +17,8 @@ from scipy.interpolate import RegularGridInterpolator
 import warnings
 warnings.filterwarnings('ignore')
 
-class UniversalConstants:
-    """Константы нашей Вселенной"""
-    def __init__(self):
-        self.m_e = 9.10938356e-31      # масса электрона (кг)
-        self.m_p = 1.6726219e-27       # масса протона (кг)
-        self.e = 1.60217662e-19        # заряд электрона (Кл)
-        self.hbar = 1.0545718e-34      # постоянная Планка (Дж·с)
-        self.c = 299792458.0           # скорость света (м/с)
-        self.epsilon_0 = 8.8541878128e-12 # диэлектрическая проницаемость
-        self.G = 6.67430e-11            # гравитационная постоянная
-        self.k_B = 1.380649e-23         # постоянная Больцмана
+from multiverse_tester import UniversalConstants, UniverseParameters
 
-class UniverseParameters:
-    """Вселенная с заданными параметрами"""
-    
-    def __init__(self, name="Test", alpha=None, m_p=None, m_e=None, G=None, c=None):
-        self.name = name
-        self.const = UniversalConstants()
-        
-        # Базовые параметры (если не заданы - берём наши)
-        self.alpha = alpha if alpha else 1/137.036
-        self.m_p = m_p if m_p else self.const.m_p
-        self.m_e = m_e if m_e else self.const.m_e
-        self.G = G if G else self.const.G
-        self.c = c if c else self.const.c
-        
-        # Производные параметры
-        self.hbar = self.const.hbar  # пока оставляем постоянной
-        self.epsilon_0 = self.const.epsilon_0
-        
-        # Заряд электрона (через alpha)
-        self.e = math.sqrt(self.alpha * 4 * math.pi * self.epsilon_0 * self.hbar * self.c)
-        
-    def __repr__(self):
-        return (f"{self.name}: α={self.alpha:.6f}, "
-                f"m_p/m_p₀={self.m_p/self.const.m_p:.2f}, "
-                f"m_e/m_e₀={self.m_e/self.const.m_e:.2f}, "
-                f"G/G₀={self.G/self.const.G:.2f}, "
-                f"c/c₀={self.c/self.const.c:.2f}")
 
 class UniverseAnalyzer5D:
     """Анализ пригодности вселенной в 5D пространстве"""

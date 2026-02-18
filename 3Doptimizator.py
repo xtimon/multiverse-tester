@@ -17,71 +17,9 @@ from typing import Tuple, List, Dict, Optional
 import warnings
 warnings.filterwarnings('ignore')
 
-# Импортируем из основного модуля
-try:
-    from multiverse_tester import (
-        UniverseParameters, UniversalConstants, UniverseAnalyzer,
-        AtomicPhysics, NuclearPhysics, StellarNucleosynthesis,
-        HabitabilityIndex
-    )
-except ImportError:
-    print("⚠️ Создаем временные классы для демонстрации...")
-    
-    # Минимальная реализация для демонстрации
-    class HabitabilityIndex:
-        DEAD, HOSTILE, MARGINAL, HABITABLE, OPTIMAL = range(5)
-    
-    class UniversalConstants:
-        def __init__(self):
-            self.m_e = 9.10938356e-31
-            self.m_p = 1.6726219e-27
-            self.e = 1.60217662e-19
-            self.hbar = 1.0545718e-34
-            self.c = 299792458.0
-            self.epsilon_0 = 8.8541878128e-12
-            self.G = 6.67430e-11
-            self.k_B = 1.380649e-23
-    
-    class UniverseParameters:
-        def __init__(self, name="Test", alpha=None, m_p=None, m_e=None):
-            self.name = name
-            self.const = UniversalConstants()
-            self.alpha = alpha if alpha else 1/137.036
-            self.m_p = m_p if m_p else self.const.m_p
-            self.m_e = m_e if m_e else self.const.m_e
-            self.e = math.sqrt(self.alpha * 4 * math.pi * self.const.epsilon_0 * 
-                              self.const.hbar * self.const.c)
-        
-        def __repr__(self):
-            return f"{self.name}: α={self.alpha:.6f}"
-    
-    class UniverseAnalyzer:
-        def __init__(self, universe):
-            self.u = universe
-            
-        def calculate_habitability_index(self):
-            # Упрощенная модель для демонстрации
-            score = 0.0
-            
-            # 1. Атомная стабильность
-            a0_ratio = (self.u.alpha / 0.007297) * (self.u.m_e / 9.11e-31)**0.5
-            if 0.5 < a0_ratio < 2:
-                score += 0.25
-            
-            # 2. Химия
-            if 0.003 < self.u.alpha < 0.02:
-                score += 0.25
-            
-            # 3. Ядерная стабильность
-            binding = 8.5 * (self.u.alpha / 0.007297)**(-0.5) * (self.u.m_p / 1.67e-27)
-            if 4 < binding < 12:
-                score += 0.25
-            
-            # 4. Звездный синтез
-            triple_alpha = math.exp(-abs(self.u.alpha - 0.007297)/0.005)
-            score += 0.25 * triple_alpha
-            
-            return None, score, {}
+from multiverse_tester import (
+    UniverseParameters, UniversalConstants, UniverseAnalyzer,
+)
 
 
 class Landscape3D:
