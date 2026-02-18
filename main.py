@@ -21,6 +21,13 @@ class UniversalConstants:
     m_n: float = 1.674927471e-27  # кг
     k_B: float = 1.380649e-23  # Дж/К
     e: float = 1.60217662e-19  # Кл
+    # Атомные массы (в кг)
+    m_he4: float = 6.6464764e-27  # кг (4He)
+    m_c12: float = 1.9926467e-26  # кг (12C)
+    m_o16: float = 2.6560178e-26  # кг (16O)
+    m_ne20: float = 3.3208645e-26  # кг (20Ne)
+    m_si28: float = 4.6467789e-26  # кг (28Si)
+    m_fe56: float = 9.2882735e-26  # кг (56Fe)
 
 class UniverseParameters:
     """Полное описание Вселенной"""
@@ -52,11 +59,19 @@ class UniverseParameters:
         self.l_planck = math.sqrt(self.hbar * self.G / self.c**3)
         self.t_planck = self.l_planck / self.c
         self.q_planck = math.sqrt(4 * math.pi * self.epsilon_0 * self.hbar * self.c)
+        
+        # Масштабируем массы ядер пропорционально m_p
+        self.m_he4 = self.const.m_he4 * (self.m_p / self.const.m_p)
+        self.m_c12 = self.const.m_c12 * (self.m_p / self.const.m_p)
+        self.m_o16 = self.const.m_o16 * (self.m_p / self.const.m_p)
+        self.m_ne20 = self.const.m_ne20 * (self.m_p / self.const.m_p)
+        self.m_si28 = self.const.m_si28 * (self.m_p / self.const.m_p)
+        self.m_fe56 = self.const.m_fe56 * (self.m_p / self.const.m_p)
     
     def __repr__(self):
-        return f"{self.name}: α={self.alpha:.6f}, e/e₀={self.e/self.const.e:.3f}"
+        return f"{self.name}: α={self.alpha:.6f}, e/e₀={self.e/self.const.e:.3f}, m_p/m_p₀={self.m_p/self.const.m_p:.3f}"
 
-# ==================== ФИЗИЧЕСКИЕ МОДУЛИ ====================
+# ==================== АТОМНАЯ ФИЗИКА ====================
 
 class AtomicPhysics:
     def __init__(self, universe: UniverseParameters):
@@ -75,58 +90,106 @@ class AtomicPhysics:
         return self.u.hbar / (self.u.const.m_e * self.u.c)
     
     def fine_structure_effects(self) -> Dict[str, float]:
-        """Все атомные эффекты, связанные с α"""
         a0 = self.bohr_radius()
         λ_c = self.compton_wavelength()
         return {
             'a0': a0,
-            'a0_norm': a0 / 5.29e-11,  # относительно нашей Вселенной
+            'a0_norm': a0 / 5.29e-11,
             'a0_over_λc': a0 / λ_c,
             'E_bind': self.rydberg_ev(),
-            'E_bind_norm': self.rydberg_ev() / 13.6  # относительно нашей Вселенной
+            'E_bind_norm': self.rydberg_ev() / 13.6
         }
+
+# ==================== ЯДЕРНАЯ ФИЗИКА ====================
 
 class NuclearPhysics:
     def __init__(self, universe: UniverseParameters):
         self.u = universe
         
     def qcd_scale(self, alpha_dependence: float = 0.1) -> float:
-        """Масштаб КХД с возможностью регулировать зависимость от α"""
-        base_lambda = 2.5e-28  # кг
+        base_lambda = 2.5e-28
         alpha_ratio = self.u.alpha / (1/137.036)
-        # Логарифмическая зависимость от α (теоретически обоснованная)
-        correction = 1 + alpha_dependence * math.log(alpha_ratio)
+        correction = 1 + alpha_dependence * math.log(alpha_ratio) if alpha_ratio > 0 else 1
         return base_lambda * max(0.3, min(3.0, correction))
     
-    def binding_energy(self, A: int = 56, alpha_dependence: float = 0.1) -> float:
-        """Энергия связи ядра с учетом зависимости от α"""
-        e0 = 8.5e6 * self.u.const.e
+    def binding_energy(self, A: int, Z: int, alpha_dependence: float = 0.1) -> float:
+        """Энергия связи ядра (полуэмпирическая формула)"""
+        # Коэффициенты для нашей Вселенной (в МэВ)
+        a_v = 15.75  # объемный член
+        a_s = 17.8   # поверхностный член
+        a_c = 0.711  # кулоновский член (пропорционален α)
+        a_a = 23.7   # асимметрия
+        a_p = 11.18  # спаривание
         
-        Z = A/2
-        # Кулоновская часть растет с α
-        coulomb = (self.u.alpha / (1/137.036)) * (Z**2) / (A**(4/3))
-        # Сильная часть зависит от масштаба КХД
-        strong = self.qcd_scale(alpha_dependence) / 2.5e-28
+        # Масштабируем кулоновский член с α
+        a_c_scaled = a_c * (self.u.alpha / (1/137.036))
         
-        binding = e0 * (strong - 0.1 * coulomb)
-        return max(0, binding)
+        # Объемный член зависит от масштаба КХД
+        qcd_scale_factor = self.qcd_scale(alpha_dependence) / 2.5e-28
+        a_v_scaled = a_v * qcd_scale_factor
+        a_s_scaled = a_s * qcd_scale_factor
+        
+        # Четность-нечетность
+        if A % 2 == 0:
+            if Z % 2 == 0:
+                delta = a_p / A**(3/4)  # четно-четное
+            else:
+                delta = -a_p / A**(3/4)  # нечетно-нечетное
+        else:
+            delta = 0  # нечетное A
+        
+        # Формула Вайцзеккера
+        B = (a_v_scaled * A - 
+             a_s_scaled * A**(2/3) - 
+             a_c_scaled * Z**2 / A**(1/3) - 
+             a_a * (A - 2*Z)**2 / A +
+             delta)
+        
+        return B * 1e6 * self.u.const.e  # в Дж
     
-    def coulomb_barrier(self, Z1: int, Z2: int) -> float:
-        r = 1.2e-15 * ((Z1 + Z2) ** (1/3))
-        return (Z1 * Z2 * self.u.alpha * self.u.hbar * self.u.c) / (4 * math.pi * r)
+    def binding_per_nucleon(self, A: int, Z: int) -> float:
+        """Энергия связи на нуклон в МэВ"""
+        return self.binding_energy(A, Z) / (A * self.u.const.e * 1e6)
+    
+    def coulomb_barrier(self, Z1: int, Z2: int, A1: int, A2: int) -> float:
+        """Кулоновский барьер для слияния ядер"""
+        r0 = 1.2e-15  # ферми
+        r = r0 * (A1**(1/3) + A2**(1/3))
+        barrier = (Z1 * Z2 * self.u.alpha * self.u.hbar * self.u.c) / (4 * math.pi * r)
+        return barrier  # в Дж
+    
+    def neutron_drip_line(self, Z: int) -> int:
+        """Приблизительная граница нейтронной стабильности"""
+        # В нашей Вселенной: N ~ 1.5 * Z для тяжелых ядер
+        # Зависит от баланса кулоновского отталкивания и сильного взаимодействия
+        coulomb_factor = (self.u.alpha / (1/137.036))
+        return int(Z * (1.2 + 0.3 * coulomb_factor))
 
-class StellarPhysics:
+# ==================== ЗВЕЗДНЫЙ НУКЛЕОСИНТЕЗ (РАСШИРЕННАЯ ВЕРСИЯ) ====================
+
+class StellarNucleosynthesis:
+    """Расширенный класс для всех процессов звездного нуклеосинтеза"""
+    
     def __init__(self, universe: UniverseParameters, nuclear: NuclearPhysics):
         self.u = universe
         self.nuclear = nuclear
         self._pp_rate_ref = None
+        self._cno_rate_ref = None
+        self._triple_alpha_ref = None
         
-    def pp_chain_rate(self, T: float = 1.5e7) -> float:
-        """Скорость pp-цепи при заданной температуре"""
+    # ===== Водородное горение =====
+    
+    def pp_chain_rate(self, T: float = 1.5e7) -> Dict[str, float]:
+        """
+        pp-цепочка (основная в звездах типа Солнца)
+        
+        Аргументы:
+            T: температура в K
+        """
         kT = self.u.const.k_B * T
         m_reduced = self.u.const.m_p / 2
         
-        # Гамов-фактор (туннелирование)
+        # Гамов-фактор для туннелирования
         E_G = (math.pi * self.u.alpha)**2 * (m_reduced * self.u.c**2 / 2)
         gamow = math.exp(-math.sqrt(E_G / kT))
         
@@ -136,33 +199,374 @@ class StellarPhysics:
         if self._pp_rate_ref is None:
             self._pp_rate_ref = rate
             
-        return rate / self._pp_rate_ref
+        # Время жизни водорода в звезде (упрощенно)
+        tau_h = 1e10 / rate * self._pp_rate_ref  # в годах
+            
+        return {
+            'rate_relative': rate / self._pp_rate_ref,
+            'gamow_factor': gamow,
+            'tau_hydrogen_years': tau_h,
+            'barrier_mev': self.nuclear.coulomb_barrier(1, 1, 1, 1) / (self.u.const.e * 1e6)
+        }
     
-    def triple_alpha(self, T: float = 1e8) -> Tuple[float, float]:
-        """Анализ тройной альфа-реакции"""
-        E_res = 380e3 * self.u.const.e  # энергия резонанса в нашей Вселенной
+    def pep_reaction(self, T: float = 1.5e7) -> float:
+        """Реакция p + e⁻ + p → d + ν (pep-цепочка)"""
+        # Зависит от плотности электронов и α
+        electron_density_factor = self.u.alpha**3  # упрощенно
+        return self.pp_chain_rate(T)['rate_relative'] * electron_density_factor
+    
+    def cno_cycle_rate(self, T: float = 2e7) -> Dict[str, float]:
+        """
+        CNO-цикл (доминирует в массивных звездах)
+        
+        Зависит от обилия C,N,O и кулоновских барьеров
+        """
         kT = self.u.const.k_B * T
         
-        # Сдвиг резонанса с α (квадратичная зависимость)
-        E_res_actual = E_res * (self.u.alpha / (1/137.036))**2
+        # Средний заряд для C,N,O с протоном
+        Z_avg = 7
+        A_avg = 14
         
-        # Насколько близко резонанс к тепловой энергии
-        resonance_match = math.exp(-abs(E_res_actual - 3*kT) / kT)
-        
-        return E_res_actual / self.u.const.e / 1000, resonance_match
-    
-    def cno_cycle_rate(self, T: float = 3e7) -> float:
-        """Скорость CNO-цикла"""
-        kT = self.u.const.k_B * T
-        Z_avg = 7  # средний Z для C,N,O
-        
-        E_G = (math.pi * self.u.alpha * Z_avg)**2 * (self.u.const.m_p * self.u.c**2 / 2)
+        # Энергия Гамова
+        m_reduced = self.u.const.m_p * A_avg / (A_avg + 1)
+        E_G = (math.pi * self.u.alpha * Z_avg)**2 * (m_reduced * self.u.c**2 / 2)
         gamow = math.exp(-math.sqrt(E_G / kT))
         
-        return self.u.alpha * gamow
+        # Скорость реакции (пропорциональна обилию CNO и α)
+        abundance_factor = 0.01  # типичное обилие CNO в звездах
+        rate = abundance_factor * self.u.alpha * gamow
+        
+        if self._cno_rate_ref is None:
+            self._cno_rate_ref = rate
+        
+        # Температурная чувствительность
+        dlnr_dlnT = (E_G / kT)**0.5 / 3
+        
+        return {
+            'rate_relative': rate / self._cno_rate_ref,
+            'gamow_factor': gamow,
+            'T_sensitivity': dlnr_dlnT
+        }
+    
+    # ===== Гелиевое горение =====
+    
+    def triple_alpha(self, T: float = 1e8) -> Dict[str, float]:
+        """
+        Тройная альфа-реакция (образование углерода)
+        
+        4He + 4He ↔ 8Be
+        8Be + 4He → 12C + γ
+        
+        Критически зависит от резонанса Хойла в 12C
+        """
+        kT = self.u.const.k_B * T
+        
+        # Энергия резонанса Хойла в нашей Вселенной (7.65 МэВ выше основного состояния)
+        E_res_our = 7.65e6 * self.u.const.e  # в Дж
+        
+        # В нашей Вселенной резонанс близок к энергии 3α при T~1e8 K
+        # Сдвиг резонанса с α (приблизительно квадратичная зависимость)
+        E_res = E_res_our * (self.u.alpha / (1/137.036))**2
+        
+        # Энергия трех α-частиц при температуре T
+        E_3alpha = 3 * kT  # приблизительно
+        
+        # Насколько близко резонанс к E_3alpha
+        # Используем распределение Брейта-Вигнера
+        gamma_res = 10e3 * self.u.const.e  # ширина резонанса ~10 кэВ
+        resonance_factor = (gamma_res/2)**2 / ((E_res - E_3alpha)**2 + (gamma_res/2)**2)
+        
+        # Концентрация 8Be (равновесная)
+        # Q-значение реакции 4He+4He↔8Be (~92 кэВ в нашей Вселенной)
+        Q_Be = 92e3 * self.u.const.e
+        # Константа равновесия зависит от α (через кулон)
+        K_eq = math.exp(-Q_Be / kT) * (self.u.alpha / (1/137.036))**3
+        
+        # Скорость тройной альфа
+        rate = K_eq * resonance_factor * self.u.alpha**3
+        
+        if self._triple_alpha_ref is None:
+            self._triple_alpha_ref = rate
+        
+        return {
+            'rate_relative': rate / self._triple_alpha_ref,
+            'resonance_energy_kev': E_res / self.u.const.e / 1000,
+            'resonance_factor': resonance_factor,
+            'Be_abundance': K_eq,
+            'carbon_production': "Высокое" if resonance_factor > 0.1 else "Низкое"
+        }
+    
+    def alpha_capture(self, target_Z: int, target_A: int, T: float = 2e8) -> float:
+        """
+        Реакции захвата α-частиц:
+        12C(α,γ)16O
+        16O(α,γ)20Ne
+        20Ne(α,γ)24Mg и т.д.
+        """
+        kT = self.u.const.k_B * T
+        Z_target = target_Z
+        A_target = target_A
+        
+        # Приведенная масса
+        m_reduced = (4 * A_target) / (4 + A_target) * self.u.const.m_p
+        
+        # Кулоновский барьер
+        E_G = (math.pi * self.u.alpha * 2 * Z_target)**2 * (m_reduced * self.u.c**2 / 2)
+        gamow = math.exp(-math.sqrt(E_G / kT))
+        
+        # Скорость захвата
+        rate = self.u.alpha * gamow
+        
+        return rate
+    
+    # ===== Горение углерода и кислорода =====
+    
+    def carbon_burning(self, T: float = 8e8) -> Dict[str, float]:
+        """
+        Горение углерода: 12C + 12C → 20Ne + α, 23Na + p, 23Mg + n
+        Происходит в массивных звездах после исчерпания гелия
+        """
+        kT = self.u.const.k_B * T
+        
+        # Кулоновский барьер для C+C
+        Z = 6
+        A = 12
+        m_reduced = A/2 * self.u.const.m_p
+        E_G = (math.pi * self.u.alpha * Z**2)**2 * (m_reduced * self.u.c**2 / 2)
+        gamow = math.exp(-math.sqrt(E_G / kT))
+        
+        # Скорость реакции (сильно зависит от α)
+        rate = self.u.alpha**2 * gamow
+        
+        # Температура зажигания
+        T_ignition = 8e8 * (self.u.alpha / (1/137.036))**2  # приблизительно
+        
+        return {
+            'rate_relative': rate / (rate if hasattr(self, '_c_ref') else rate),
+            'T_ignition': T_ignition,
+            'gamow': gamow
+        }
+    
+    def oxygen_burning(self, T: float = 2e9) -> float:
+        """
+        Горение кислорода: 16O + 16O → 28Si + α, 31P + p, 31S + n
+        """
+        kT = self.u.const.k_B * T
+        
+        Z = 8
+        A = 16
+        m_reduced = A/2 * self.u.const.m_p
+        E_G = (math.pi * self.u.alpha * Z**2)**2 * (m_reduced * self.u.c**2 / 2)
+        gamow = math.exp(-math.sqrt(E_G / kT))
+        
+        return self.u.alpha**2 * gamow
+    
+    # ===== Кремниевое горение и альфа-процесс =====
+    
+    def silicon_burning(self, T: float = 3e9) -> float:
+        """
+        Кремниевое горение: фотодиссоциация и альфа-захват
+        В результате образуется железо
+        """
+        kT = self.u.const.k_B * T
+        
+        # Равновесие между фотодиссоциацией и захватом
+        # Q-значение для реакции 28Si + γ ↔ 24Mg + α
+        Q_si = 10e6 * self.u.const.e  # ~10 МэВ
+        
+        # Константа равновесия зависит от α
+        K_eq = math.exp(-Q_si / kT) * (self.u.alpha / (1/137.036))**3
+        
+        return K_eq
+    
+    def alpha_process(self, T: float = 2e9) -> List[Dict]:
+        """
+        Альфа-процесс: последовательный захват α-частиц
+        от Ne до Fe
+        
+        Возвращает список ядер и вероятности их образования
+        """
+        nuclei = [
+            {'name': '20Ne', 'Z': 10, 'A': 20},
+            {'name': '24Mg', 'Z': 12, 'A': 24},
+            {'name': '28Si', 'Z': 14, 'A': 28},
+            {'name': '32S', 'Z': 16, 'A': 32},
+            {'name': '36Ar', 'Z': 18, 'A': 36},
+            {'name': '40Ca', 'Z': 20, 'A': 40},
+            {'name': '44Ti', 'Z': 22, 'A': 44},
+            {'name': '48Cr', 'Z': 24, 'A': 48},
+            {'name': '52Fe', 'Z': 26, 'A': 52},
+            {'name': '56Ni', 'Z': 28, 'A': 56}
+        ]
+        
+        results = []
+        prev_rate = 1.0
+        
+        for i, nucleus in enumerate(nuclei):
+            if i == 0:
+                # Начинаем с Ne
+                rate = self.alpha_capture(10, 20, T)
+            else:
+                # Последовательный захват
+                rate = prev_rate * self.alpha_capture(nucleus['Z'], nucleus['A'], T)
+            
+            results.append({
+                'nucleus': nucleus['name'],
+                'relative_yield': rate,
+                'Z': nucleus['Z'],
+                'A': nucleus['A']
+            })
+            prev_rate = rate
+        
+        return results
+    
+    # ===== Нейтронные процессы =====
+    
+    def s_process(self, T: float = 3e8, neutron_density: float = 1e8) -> Dict[str, float]:
+        """
+        s-процесс (медленный захват нейтронов)
+        Происходит в AGB-звездах
+        
+        Зависит от:
+        - сечения захвата нейтронов (слабо зависит от α)
+        - времени между захватами (зависит от β-распадов)
+        """
+        # Сечение захвата нейтронов ~ 1/v ~ 1/sqrt(T)
+        cross_section = 1.0 / math.sqrt(T / 3e8)
+        
+        # β-распады зависят от энергии Ферми и α
+        # Время жизни относительно β-распада
+        beta_lifetime = 1e3 * (self.u.alpha / (1/137.036))**2  # в годах, упрощенно
+        
+        # Время между захватами нейтронов
+        capture_time = 1e5 / (neutron_density * cross_section)  # годы
+        
+        # Путь s-процесса (какие ядра успевают образоваться)
+        if capture_time < beta_lifetime:
+            path = "медленный (s-процесс)"
+            abundance = "высокое"
+        else:
+            path = "быстрый (r-процесс)"
+            abundance = "низкое для s-процесса"
+        
+        return {
+            'path': path,
+            'capture_time_years': capture_time,
+            'beta_lifetime_years': beta_lifetime,
+            'abundance': abundance
+        }
+    
+    def r_process(self, neutron_density: float = 1e20, T: float = 1e9) -> Dict[str, float]:
+        """
+        r-процесс (быстрый захват нейтронов)
+        Происходит в сверхновых и нейтронных звездах
+        
+        Очень высокая плотность нейтронов
+        """
+        # При очень высокой плотности нейтронов
+        # захват идет до нейтронно-избыточных ядер
+        
+        # Положение линии капель нейтронов
+        neutron_drip = []
+        heavy_elements = []
+        
+        for Z in range(26, 92):  # от Fe до U
+            N_max = self.nuclear.neutron_drip_line(Z)
+            neutron_drip.append(N_max)
+            
+            # Оцениваем обилие трансурановых элементов
+            if Z > 92:
+                heavy_elements.append(Z)
+        
+        return {
+            'max_neutron_excess': max(neutron_drip) if neutron_drip else 0,
+            'transuranic_elements': len(heavy_elements),
+            'r_process_abundance': "высокое" if neutron_density > 1e18 else "низкое"
+        }
+    
+    # ===== Взрывной нуклеосинтез =====
+    
+    def supernova_nucleosynthesis(self, progenitor_mass: float = 15) -> Dict[str, List]:
+        """
+        Нуклеосинтез в сверхновой (очень упрощенно)
+        
+        Аргументы:
+            progenitor_mass: масса предшественника в массах Солнца
+        """
+        # Элементы, образующиеся в разных слоях
+        elements = {
+            'outer_H': ['H', 'He'],
+            'He_layer': ['He', 'C', 'O'],
+            'C_layer': ['C', 'O', 'Ne', 'Mg'],
+            'O_layer': ['O', 'Mg', 'Si', 'S'],
+            'Si_layer': ['Si', 'S', 'Ar', 'Ca'],
+            'Fe_core': ['Fe', 'Co', 'Ni']
+        }
+        
+        # Зависимость от α: масса железного ядра
+        # Больше α → сильнее кулон → меньше железное ядро
+        M_fe_core = 1.4 * (self.u.alpha / (1/137.036))**(-0.5)  # массы Солнца
+        
+        # Порог коллапса
+        if M_fe_core > 1.8:  # слишком большое ядро
+            collapse_type = "черная дыра"
+            neutron_star = False
+        elif M_fe_core < 1.0:  # слишком маленькое ядро
+            collapse_type = "белый карлик"
+            neutron_star = False
+        else:
+            collapse_type = "нейтронная звезда"
+            neutron_star = True
+        
+        return {
+            'elements': elements,
+            'fe_core_mass': M_fe_core,
+            'collapse_type': collapse_type,
+            'neutron_star_formed': neutron_star,
+            'r_process_possible': neutron_star  # в нейтронных звездах возможен r-процесс
+        }
+    
+    def complete_nucleosynthesis_analysis(self) -> Dict:
+        """Полный анализ всех процессов нуклеосинтеза"""
+        
+        results = {}
+        
+        # Водородное горение
+        results['pp_chain'] = self.pp_chain_rate()
+        results['cno_cycle'] = self.cno_cycle_rate()
+        
+        # Гелиевое горение
+        results['triple_alpha'] = self.triple_alpha()
+        
+        # Углеродное горение
+        results['carbon_burning'] = self.carbon_burning()
+        
+        # Альфа-процесс
+        results['alpha_process'] = self.alpha_process()
+        
+        # Нейтронные процессы
+        results['s_process'] = self.s_process()
+        results['r_process'] = self.r_process()
+        
+        # Сверхновые
+        results['supernova'] = self.supernova_nucleosynthesis()
+        
+        # Оцениваем общее производство элементов
+        element_production = {
+            'H_He': results['pp_chain']['rate_relative'] * results['cno_cycle']['rate_relative'],
+            'C': results['triple_alpha']['rate_relative'],
+            'O_Mg_Si': np.mean([r['relative_yield'] for r in results['alpha_process'][:5]]),
+            'Fe_peak': results['carbon_burning']['rate_relative'] * results['supernova']['fe_core_mass'],
+            'heavy_r_process': len(results['r_process']) if results['r_process']['transuranic_elements'] > 0 else 0
+        }
+        
+        results['element_production'] = element_production
+        
+        return results
+
+# ==================== ИНДЕКС ПРИГОДНОСТИ ====================
 
 class HabitabilityIndex(Enum):
-    """Индекс пригодности для жизни"""
     DEAD = 0
     HOSTILE = 1
     MARGINAL = 2
@@ -170,18 +574,17 @@ class HabitabilityIndex(Enum):
     OPTIMAL = 4
 
 class UniverseAnalyzer:
-    """Полный анализ Вселенной с вычислением индекса пригодности"""
+    """Полный анализ Вселенной с расширенным нуклеосинтезом"""
     
     def __init__(self, universe: UniverseParameters):
         self.u = universe
         self.atomic = AtomicPhysics(universe)
         self.nuclear = NuclearPhysics(universe)
-        self.stellar = StellarPhysics(universe, self.nuclear)
+        self.stellar = StellarNucleosynthesis(universe, self.nuclear)
         
     def calculate_habitability_index(self) -> Tuple[HabitabilityIndex, float, Dict]:
         """Вычисляет индекс пригодности для жизни"""
         
-        # Собираем все метрики
         metrics = {}
         
         # 1. Атомная структура
@@ -197,33 +600,45 @@ class UniverseAnalyzer:
         
         # 2. Химия (значение α)
         α = self.u.alpha
-        if 1/200 < α < 1/50:  # оптимальный диапазон
+        if 1/200 < α < 1/50:
             metrics['chemistry'] = 1.0
-        elif 1/300 < α < 1/30:  # допустимый диапазон
+        elif 1/300 < α < 1/30:
             metrics['chemistry'] = 0.5
         else:
             metrics['chemistry'] = 0.0
         
         # 3. Ядерная энергия
-        binding = self.nuclear.binding_energy() / (self.u.const.e * 1e6)  # МэВ
-        if 5 < binding < 12:
+        binding_fe = self.nuclear.binding_per_nucleon(56, 26)
+        if 7 < binding_fe < 10:
             metrics['nuclear'] = 1.0
-        elif 2 < binding < 15:
+        elif 4 < binding_fe < 12:
             metrics['nuclear'] = 0.5
         else:
             metrics['nuclear'] = 0.0
         
-        # 4. Звездный синтез (углерод)
-        _, res_match = self.stellar.triple_alpha()
-        if res_match > 0.5:
+        # 4. Звездный синтез (полный анализ)
+        nucleosynthesis = self.stellar.complete_nucleosynthesis_analysis()
+        
+        # Углерод
+        carbon_prod = nucleosynthesis['triple_alpha']['rate_relative']
+        if carbon_prod > 0.5:
             metrics['carbon'] = 1.0
-        elif res_match > 0.1:
+        elif carbon_prod > 0.1:
             metrics['carbon'] = 0.5
         else:
             metrics['carbon'] = 0.0
         
-        # 5. Звездный синтез (водород)
-        pp_rate = self.stellar.pp_chain_rate()
+        # Тяжелые элементы (альфа-процесс)
+        alpha_prod = np.mean([r['relative_yield'] for r in nucleosynthesis['alpha_process'][:5]])
+        if alpha_prod > 0.3:
+            metrics['heavy_elements'] = 1.0
+        elif alpha_prod > 0.1:
+            metrics['heavy_elements'] = 0.5
+        else:
+            metrics['heavy_elements'] = 0.0
+        
+        # Водородный синтез
+        pp_rate = nucleosynthesis['pp_chain']['rate_relative']
         if 0.1 < pp_rate < 10:
             metrics['fusion'] = 1.0
         elif 0.01 < pp_rate < 100:
@@ -231,11 +646,32 @@ class UniverseAnalyzer:
         else:
             metrics['fusion'] = 0.0
         
-        # Вычисляем общий индекс (среднее взвешенное)
-        weights = {'atomic': 0.2, 'chemistry': 0.3, 'nuclear': 0.2, 'carbon': 0.2, 'fusion': 0.1}
-        total_score = sum(metrics[k] * weights[k] for k in metrics)
+        # Сверхновые (образование нейтронных звезд)
+        if nucleosynthesis['supernova']['neutron_star_formed']:
+            metrics['supernova'] = 1.0
+        else:
+            metrics['supernova'] = 0.0
         
-        # Определяем категорию
+        # r-процесс (тяжелые элементы)
+        if nucleosynthesis['r_process']['transuranic_elements'] > 0:
+            metrics['r_process'] = 1.0
+        else:
+            metrics['r_process'] = 0.0
+        
+        # Вычисляем общий индекс
+        weights = {
+            'atomic': 0.15,
+            'chemistry': 0.20,
+            'nuclear': 0.15,
+            'carbon': 0.15,
+            'heavy_elements': 0.10,
+            'fusion': 0.10,
+            'supernova': 0.05,
+            'r_process': 0.10
+        }
+        
+        total_score = sum(metrics.get(k, 0) * weights[k] for k in weights)
+        
         if total_score > 0.8:
             index = HabitabilityIndex.OPTIMAL
         elif total_score > 0.6:
@@ -252,15 +688,17 @@ class UniverseAnalyzer:
     def get_all_properties(self) -> Dict:
         """Возвращает все свойства Вселенной"""
         atomic = self.atomic.fine_structure_effects()
+        nucleo = self.stellar.complete_nucleosynthesis_analysis()
         
         return {
             'alpha': self.u.alpha,
             'e_ratio': self.u.e / self.u.const.e,
             'bohr_radius_norm': atomic['a0_norm'],
-            'binding_energy_mev': self.nuclear.binding_energy() / (self.u.const.e * 1e6),
-            'pp_rate': self.stellar.pp_chain_rate(),
-            'triple_alpha_res_match': self.stellar.triple_alpha()[1],
-            'cno_rate': self.stellar.cno_cycle_rate()
+            'binding_energy_mev': self.nuclear.binding_per_nucleon(56, 26),
+            'pp_rate': nucleo['pp_chain']['rate_relative'],
+            'triple_alpha_rate': nucleo['triple_alpha']['rate_relative'],
+            'carbon_prod': nucleo['triple_alpha']['rate_relative'],
+            'alpha_process_yield': np.mean([r['relative_yield'] for r in nucleo['alpha_process'][:5]])
         }
 
 # ==================== ДИНАМИЧЕСКОЕ ИССЛЕДОВАНИЕ ====================
@@ -277,16 +715,7 @@ class MultiverseDynamicsExplorer:
                        num_points: int = 100,
                        log_scale: bool = False,
                        other_params: Optional[Dict] = None) -> Dict:
-        """
-        Сканирует один параметр и собирает все зависимости
-        
-        Args:
-            param_name: "alpha", "e", или "m_p"
-            start, stop: границы сканирования
-            num_points: количество точек
-            log_scale: использовать логарифмическую шкалу
-            other_params: фиксированные значения других параметров
-        """
+        """Сканирует один параметр"""
         
         print(f"\n🔍 Сканирование параметра {param_name} от {start} до {stop} ({num_points} точек)...")
         
@@ -303,7 +732,6 @@ class MultiverseDynamicsExplorer:
         other_params = other_params or {}
         
         for i, val in enumerate(values):
-            # Создаем вселенную с текущим значением параметра
             if param_name == "alpha":
                 u = UniverseParameters(
                     name=f"α={val:.6f}",
@@ -318,7 +746,7 @@ class MultiverseDynamicsExplorer:
                     e=e_val,
                     **{k: v for k, v in other_params.items() if k != 'e'}
                 )
-                param_values.append(val)  # сохраняем относительное значение
+                param_values.append(val)
             elif param_name == "m_p":
                 m_p_val = val * self.base.const.m_p
                 u = UniverseParameters(
@@ -330,7 +758,6 @@ class MultiverseDynamicsExplorer:
             else:
                 raise ValueError(f"Unknown parameter: {param_name}")
             
-            # Анализируем вселенную
             analyzer = UniverseAnalyzer(u)
             props = analyzer.get_all_properties()
             index, score, metrics = analyzer.calculate_habitability_index()
@@ -342,7 +769,6 @@ class MultiverseDynamicsExplorer:
             if i % max(1, num_points//10) == 0:
                 print(f"   Прогресс: {i}/{num_points} ({i/num_points*100:.1f}%)")
         
-        # Сохраняем результаты
         result = {
             'param_name': param_name,
             'param_values': np.array(param_values),
@@ -356,80 +782,8 @@ class MultiverseDynamicsExplorer:
         
         return result
     
-    def scan_2d(self, param1_name: str, param1_range: Tuple[float, float],
-                param2_name: str, param2_range: Tuple[float, float],
-                num_points1: int = 30, num_points2: int = 30) -> Dict:
-        """
-        Двумерное сканирование для поиска корреляций
-        """
-        print(f"\n🔬 2D сканирование: {param1_name} × {param2_name}")
-        
-        if param1_name == "alpha":
-            values1 = np.linspace(param1_range[0], param1_range[1], num_points1)
-        else:
-            values1 = np.linspace(param1_range[0], param1_range[1], num_points1)
-            
-        if param2_name == "alpha":
-            values2 = np.linspace(param2_range[0], param2_range[1], num_points2)
-        else:
-            values2 = np.linspace(param2_range[0], param2_range[1], num_points2)
-        
-        score_map = np.zeros((num_points1, num_points2))
-        
-        for i, v1 in enumerate(values1):
-            for j, v2 in enumerate(values2):
-                params = {}
-                
-                if param1_name == "alpha":
-                    params['alpha'] = v1
-                elif param1_name == "e":
-                    params['e'] = v1 * self.base.const.e
-                elif param1_name == "m_p":
-                    params['m_p'] = v1 * self.base.const.m_p
-                
-                if param2_name == "alpha":
-                    params['alpha'] = v2
-                elif param2_name == "e":
-                    params['e'] = v2 * self.base.const.e
-                elif param2_name == "m_p":
-                    params['m_p'] = v2 * self.base.const.m_p
-                
-                u = UniverseParameters(name=f"2D-{i}-{j}", **params)
-                analyzer = UniverseAnalyzer(u)
-                _, score, _ = analyzer.calculate_habitability_index()
-                score_map[i, j] = score
-        
-        result = {
-            'param1': param1_name,
-            'param2': param2_name,
-            'values1': values1,
-            'values2': values2,
-            'score_map': score_map
-        }
-        
-        return result
-    
-    def find_critical_points(self, param_name: str, threshold: float = 0.5) -> List[float]:
-        """Находит критические значения параметра, где пригодность падает ниже порога"""
-        if param_name not in self.results:
-            raise ValueError(f"Сначала выполните сканирование для {param_name}")
-        
-        result = self.results[param_name]
-        scores = result['habitability_scores']
-        values = result['param_values']
-        
-        critical_points = []
-        for i in range(len(scores)-1):
-            if (scores[i] - threshold) * (scores[i+1] - threshold) < 0:
-                # Интерполяция
-                t = (threshold - scores[i]) / (scores[i+1] - scores[i])
-                crit_val = values[i] + t * (values[i+1] - values[i])
-                critical_points.append(crit_val)
-        
-        return critical_points
-    
     def analyze_correlations(self, param_name: str) -> Dict:
-        """Анализирует корреляции между параметром и различными свойствами"""
+        """Анализирует корреляции"""
         if param_name not in self.results:
             raise ValueError(f"Сначала выполните сканирование для {param_name}")
         
@@ -437,7 +791,6 @@ class MultiverseDynamicsExplorer:
         values = result['param_values']
         props = result['properties']
         
-        # Извлекаем все ключи свойств
         if not props:
             return {}
         
@@ -446,256 +799,41 @@ class MultiverseDynamicsExplorer:
         
         for key in keys:
             prop_values = [p[key] for p in props]
-            
-            # Вычисляем корреляцию Пирсона
-            corr = np.corrcoef(values, prop_values)[0, 1]
-            correlations[key] = corr
+            if not np.all(np.isnan(prop_values)):
+                corr = np.corrcoef(values, prop_values)[0, 1]
+                correlations[key] = corr if not np.isnan(corr) else 0.0
         
         return correlations
-
-# ==================== ВИЗУАЛИЗАЦИЯ ====================
-
-class MultiverseVisualizer:
-    """Визуализация результатов исследования мультивселенной"""
-    
-    def __init__(self, explorer: MultiverseDynamicsExplorer):
-        self.explorer = explorer
-        
-    def plot_1d_scan(self, param_name: str, 
-                     properties: Optional[List[str]] = None,
-                     figsize: Tuple[int, int] = (15, 10)):
-        """Строит графики 1D сканирования"""
-        
-        if param_name not in self.explorer.results:
-            print(f"Нет данных для {param_name}")
-            return
-        
-        result = self.explorer.results[param_name]
-        values = result['param_values']
-        
-        if properties is None:
-            # Автоматически выбираем свойства для отображения
-            properties = ['bohr_radius_norm', 'binding_energy_mev', 
-                         'pp_rate', 'triple_alpha_res_match']
-        
-        n_props = len(properties)
-        fig, axes = plt.subplots(n_props, 2, figsize=figsize)
-        
-        # Цветовая карта для индекса пригодности
-        colors = plt.cm.RdYlGn(result['habitability_scores'])
-        
-        for i, prop in enumerate(properties):
-            # Левый график: зависимость свойства
-            ax = axes[i, 0] if n_props > 1 else axes[0]
-            prop_values = [p[prop] for p in result['properties']]
-            
-            ax.scatter(values, prop_values, c=colors, alpha=0.6, s=30)
-            ax.set_xlabel(param_name)
-            ax.set_ylabel(prop)
-            ax.set_title(f'{prop} vs {param_name}')
-            ax.grid(True, alpha=0.3)
-            
-            # Добавляем нашу Вселенную для reference
-            our_val = 1/137.036 if param_name == 'alpha' else 1.0
-            if our_val >= min(values) and our_val <= max(values):
-                ax.axvline(x=our_val, color='red', linestyle='--', alpha=0.5, label='Наша Вселенная')
-            
-            # Правый график: индекс пригодности
-            ax = axes[i, 1] if n_props > 1 else axes[1]
-            ax.scatter(values, prop_values, c=result['habitability_scores'], 
-                      cmap='RdYlGn', vmin=0, vmax=1, s=30)
-            ax.set_xlabel(param_name)
-            ax.set_ylabel(prop)
-            ax.set_title(f'{prop} (цвет = пригодность)')
-            ax.grid(True, alpha=0.3)
-            
-            if our_val >= min(values) and our_val <= max(values):
-                ax.axvline(x=our_val, color='red', linestyle='--', alpha=0.5)
-        
-        plt.tight_layout()
-        plt.show()
-    
-    def plot_habitability_scan(self, param_name: str, figsize: Tuple[int, int] = (12, 5)):
-        """Строит график пригодности в зависимости от параметра"""
-        
-        result = self.explorer.results[param_name]
-        values = result['param_values']
-        scores = result['habitability_scores']
-        indices = result['habitability_indices']
-        
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
-        
-        # График 1: непрерывная шкала пригодности
-        ax1.plot(values, scores, 'b-', linewidth=2, alpha=0.7)
-        ax1.fill_between(values, 0, scores, alpha=0.3, color='green')
-        ax1.axhline(y=0.8, color='gold', linestyle='--', alpha=0.5, label='Оптимально')
-        ax1.axhline(y=0.6, color='lime', linestyle='--', alpha=0.5, label='Пригодно')
-        ax1.axhline(y=0.3, color='orange', linestyle='--', alpha=0.5, label='Маргинально')
-        ax1.axhline(y=0.1, color='red', linestyle='--', alpha=0.5, label='Враждебно')
-        
-        # Наша Вселенная
-        our_val = 1/137.036 if param_name == 'alpha' else 1.0
-        if our_val >= min(values) and our_val <= max(values):
-            ax1.axvline(x=our_val, color='red', linewidth=2, label='Наша Вселенная')
-        
-        ax1.set_xlabel(param_name)
-        ax1.set_ylabel('Индекс пригодности')
-        ax1.set_title(f'Пригодность для жизни vs {param_name}')
-        ax1.set_ylim(-0.05, 1.05)
-        ax1.grid(True, alpha=0.3)
-        ax1.legend(loc='best')
-        
-        # График 2: дискретные категории
-        colors = ['darkred', 'red', 'orange', 'yellowgreen', 'darkgreen']
-        labels = ['Мертвая', 'Враждебная', 'Маргинальная', 'Пригодная', 'Оптимальная']
-        
-        for i in range(5):
-            mask = indices == i
-            if np.any(mask):
-                ax2.scatter(values[mask], [i]*np.sum(mask), 
-                          c=colors[i], s=50, alpha=0.6, label=labels[i])
-        
-        ax2.set_xlabel(param_name)
-        ax2.set_ylabel('Категория')
-        ax2.set_yticks(range(5))
-        ax2.set_yticklabels(labels)
-        ax2.set_title(f'Категории вселенных vs {param_name}')
-        ax2.grid(True, alpha=0.3, axis='x')
-        ax2.legend(loc='best')
-        
-        if our_val >= min(values) and our_val <= max(values):
-            ax2.axvline(x=our_val, color='red', linewidth=2)
-        
-        plt.tight_layout()
-        plt.show()
-    
-    def plot_2d_heatmap(self, result_2d: Dict, figsize: Tuple[int, int] = (10, 8)):
-        """Строит тепловую карту 2D сканирования"""
-        
-        fig, ax = plt.subplots(1, 1, figsize=figsize)
-        
-        im = ax.imshow(result_2d['score_map'].T, origin='lower', 
-                      extent=[result_2d['values1'][0], result_2d['values1'][-1],
-                             result_2d['values2'][0], result_2d['values2'][-1]],
-                      aspect='auto', cmap='RdYlGn', vmin=0, vmax=1)
-        
-        plt.colorbar(im, ax=ax, label='Индекс пригодности')
-        
-        ax.set_xlabel(result_2d['param1'])
-        ax.set_ylabel(result_2d['param2'])
-        ax.set_title(f'Пригодность для жизни: {result_2d["param1"]} vs {result_2d["param2"]}')
-        
-        # Отмечаем нашу Вселенную
-        our_x = 1/137.036 if result_2d['param1'] == 'alpha' else 1.0
-        our_y = 1/137.036 if result_2d['param2'] == 'alpha' else 1.0
-        
-        if (our_x >= result_2d['values1'][0] and our_x <= result_2d['values1'][-1] and
-            our_y >= result_2d['values2'][0] and our_y <= result_2d['values2'][-1]):
-            ax.plot(our_x, our_y, 'r*', markersize=15, label='Наша Вселенная')
-            ax.legend()
-        
-        plt.tight_layout()
-        plt.show()
-    
-    def plot_correlation_matrix(self, param_name: str, figsize: Tuple[int, int] = (10, 8)):
-        """Строит матрицу корреляций между свойствами"""
-        
-        correlations = self.explorer.analyze_correlations(param_name)
-        
-        if not correlations:
-            print("Нет данных для корреляционного анализа")
-            return
-        
-        # Создаем матрицу корреляций между свойствами
-        props = list(correlations.keys())
-        n = len(props)
-        corr_matrix = np.zeros((n, n))
-        
-        for i, p1 in enumerate(props):
-            for j, p2 in enumerate(props):
-                if i == j:
-                    corr_matrix[i, j] = 1.0
-                else:
-                    # Вычисляем корреляцию между свойствами
-                    result = self.explorer.results[param_name]
-                    values1 = [p[p1] for p in result['properties']]
-                    values2 = [p[p2] for p in result['properties']]
-                    corr_matrix[i, j] = np.corrcoef(values1, values2)[0, 1]
-        
-        fig, ax = plt.subplots(1, 1, figsize=figsize)
-        im = ax.imshow(corr_matrix, cmap='coolwarm', vmin=-1, vmax=1)
-        
-        plt.colorbar(im, ax=ax, label='Корреляция')
-        
-        ax.set_xticks(range(n))
-        ax.set_yticks(range(n))
-        ax.set_xticklabels(props, rotation=45, ha='right')
-        ax.set_yticklabels(props)
-        ax.set_title(f'Корреляции свойств при изменении {param_name}')
-        
-        # Добавляем значения в ячейки
-        for i in range(n):
-            for j in range(n):
-                text = ax.text(j, i, f'{corr_matrix[i, j]:.2f}',
-                             ha='center', va='center', color='black' if abs(corr_matrix[i, j]) < 0.7 else 'white')
-        
-        plt.tight_layout()
-        plt.show()
 
 # ==================== ДЕМОНСТРАЦИЯ ====================
 
 if __name__ == "__main__":
     
     print("="*60)
-    print("🚀 МУЛЬТИВСЕЛЕННЫЙ ДИНАМИЧЕСКИЙ АНАЛИЗАТОР v2.0")
+    print("🚀 МУЛЬТИВСЕЛЕННЫЙ АНАЛИЗАТОР v3.0 (С РАСШИРЕННЫМ НУКЛЕОСИНТЕЗОМ)")
     print("="*60)
     
     # Создаем исследователя
     explorer = MultiverseDynamicsExplorer()
-    visualizer = MultiverseVisualizer(explorer)
     
-    # 1. Сканируем alpha в широком диапазоне
+    # Сканируем alpha
     explorer.scan_parameter(
         param_name="alpha",
-        start=1/500,  # очень слабый электромагнетизм
-        stop=1/20,    # очень сильный электромагнетизм
+        start=1/500,
+        stop=1/20,
         num_points=200,
         log_scale=False
     )
     
-    # 2. Визуализируем результаты
-    visualizer.plot_habitability_scan("alpha")
-    visualizer.plot_1d_scan("alpha")
-    
-    # 3. Находим критические точки
-    critical = explorer.find_critical_points("alpha", threshold=0.5)
-    print(f"\n🔍 Критические значения α (где пригодность падает ниже 0.5):")
-    for i, val in enumerate(critical):
-        print(f"   {i+1}. α = {val:.6f}")
-    
-    # 4. Анализ корреляций
+    # Корреляции
     correlations = explorer.analyze_correlations("alpha")
     print(f"\n📊 Корреляции с α:")
     for prop, corr in sorted(correlations.items(), key=lambda x: abs(x[1]), reverse=True):
         print(f"   {prop}: {corr:+.3f}")
     
-    visualizer.plot_correlation_matrix("alpha")
-    
-    # 5. 2D сканирование (alpha vs масса протона)
-    result_2d = explorer.scan_2d(
-        param1_name="alpha",
-        param1_range=(1/300, 1/30),
-        param2_name="m_p",
-        param2_range=(0.5, 2.0),  # масса протона относительно нашей
-        num_points1=50,
-        num_points2=50
-    )
-    
-    visualizer.plot_2d_heatmap(result_2d)
-    
-    # 6. Детальный анализ нашей Вселенной
+    # Анализ нашей Вселенной
     print("\n" + "="*60)
-    print("🔬 ДЕТАЛЬНЫЙ АНАЛИЗ НАШЕЙ ВСЕЛЕННОЙ")
+    print("🔬 ДЕТАЛЬНЫЙ АНАЛИЗ НАШЕЙ ВСЕЛЕННОЙ (С РАСШИРЕННЫМ НУКЛЕОСИНТЕЗОМ)")
     print("="*60)
     
     our_analyzer = UniverseAnalyzer(UniverseParameters("🌍 Наша Вселенная"))
@@ -704,38 +842,35 @@ if __name__ == "__main__":
     print(f"\n📊 Индекс пригодности: {score:.3f}")
     print(f"🏷️ Категория: {index.name}")
     print(f"\n📈 Метрики:")
-    for metric, value in metrics.items():
+    for metric, value in sorted(metrics.items()):
         print(f"   {metric}: {value:.2f}")
     
-    # 7. Сравниваем несколько интересных вселенных
-    print("\n" + "="*60)
-    print("🌌 СРАВНЕНИЕ ИНТЕРЕСНЫХ ВСЕЛЕННЫХ")
-    print("="*60)
+    # Детальный анализ нуклеосинтеза
+    print(f"\n🌟 ДЕТАЛЬНЫЙ НУКЛЕОСИНТЕЗ:")
+    nucleo = our_analyzer.stellar.complete_nucleosynthesis_analysis()
     
-    interesting_alphas = [1/300, 1/200, 1/137.036, 1/100, 1/50, 1/30]
+    print(f"\n   🔥 Водородное горение:")
+    print(f"      pp-цепочка: {nucleo['pp_chain']['rate_relative']:.2f} от солнечной")
+    print(f"      CNO-цикл: {nucleo['cno_cycle']['rate_relative']:.2f} от солнечной")
+    print(f"      Время жизни H: {nucleo['pp_chain']['tau_hydrogen_years']:.2e} лет")
     
-    for alpha in interesting_alphas:
-        u = UniverseParameters(name=f"α={alpha:.4f}", alpha=alpha)
-        analyzer = UniverseAnalyzer(u)
-        index, score, _ = analyzer.calculate_habitability_index()
-        
-        marker = "✅" if index.value >= HabitabilityIndex.HABITABLE.value else "⚠️" if index.value >= HabitabilityIndex.MARGINAL.value else "❌"
-        print(f"{marker} {u.name}: {index.name} (score: {score:.3f})")
+    print(f"\n   ⚡ Гелиевое горение:")
+    print(f"      Тройная α: {nucleo['triple_alpha']['rate_relative']:.2f} от солнечной")
+    print(f"      Резонанс углерода: {nucleo['triple_alpha']['resonance_energy_kev']:.1f} кэВ")
+    print(f"      Производство C: {nucleo['triple_alpha']['carbon_production']}")
     
-    # 8. Дополнительное сканирование для e и m_p
-    print("\n" + "="*60)
-    print("⚡ СКАНИРОВАНИЕ ЭЛЕМЕНТАРНОГО ЗАРЯДА")
-    print("="*60)
+    print(f"\n   💫 Альфа-процесс (от Ne до Fe):")
+    for r in nucleo['alpha_process'][:5]:
+        print(f"      {r['nucleus']}: относительный выход {r['relative_yield']:.3f}")
     
-    explorer.scan_parameter(
-        param_name="e",
-        start=0.1,    # 10% от нашего заряда
-        stop=3.0,     # 300% от нашего заряда
-        num_points=100,
-        log_scale=False
-    )
+    print(f"\n   🌌 Нейтронные процессы:")
+    print(f"      s-процесс: {nucleo['s_process']['path']}")
+    print(f"      r-процесс: трансурановых элементов {nucleo['r_process']['transuranic_elements']}")
     
-    visualizer.plot_habitability_scan("e")
+    print(f"\n   💥 Сверхновые:")
+    print(f"      Масса Fe ядра: {nucleo['supernova']['fe_core_mass']:.2f} M☉")
+    print(f"      Тип коллапса: {nucleo['supernova']['collapse_type']}")
+    print(f"      r-процесс возможен: {nucleo['supernova']['r_process_possible']}")
     
     print("\n" + "="*60)
     print("🎉 АНАЛИЗ ЗАВЕРШЕН!")
