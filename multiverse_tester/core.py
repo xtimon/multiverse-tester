@@ -177,15 +177,51 @@ class NuclearPhysics:
 
 # ==================== ЗВЕЗДНЫЙ НУКЛЕОСИНТЕЗ (РАСШИРЕННАЯ ВЕРСИЯ) ====================
 
+# Референсные скорости для нашей Вселенной (для rate_relative — сравнение с нашей)
+_REF_RATES = None
+
+def _get_ref_rates():
+    """Вычисляет эталонные скорости один раз для нашей Вселенной (без рекурсии)"""
+    global _REF_RATES
+    if _REF_RATES is None:
+        ref_u = UniverseParameters(name="Reference")
+        kT_pp = ref_u.const.k_B * 1.5e7
+        m_red_pp = ref_u.m_p / 2
+        E_G_pp = (math.pi * ref_u.alpha)**2 * (m_red_pp * ref_u.c**2 / 2)
+        gamow_pp = math.exp(-math.sqrt(E_G_pp / kT_pp))
+        pp_rate = ref_u.alpha**2 * (kT_pp)**(2/3) * gamow_pp
+
+        kT_cno = ref_u.const.k_B * 2e7
+        m_red_cno = ref_u.m_p * 14 / 15
+        E_G_cno = (math.pi * ref_u.alpha * 7)**2 * (m_red_cno * ref_u.c**2 / 2)
+        gamow_cno = math.exp(-math.sqrt(E_G_cno / kT_cno))
+        cno_rate = 0.01 * ref_u.alpha * gamow_cno
+
+        kT_ta = ref_u.const.k_B * 1e8
+        E_res = 7.65e6 * ref_u.const.e * (ref_u.alpha / (1/137.036))**2
+        E_3alpha = 3 * kT_ta
+        gamma_res = 10e3 * ref_u.const.e
+        resonance_factor = (gamma_res/2)**2 / ((E_res - E_3alpha)**2 + (gamma_res/2)**2)
+        Q_Be = 92e3 * ref_u.const.e
+        K_eq = math.exp(-Q_Be / kT_ta) * (ref_u.alpha / (1/137.036))**3
+        ta_rate = K_eq * resonance_factor * ref_u.alpha**3
+
+        kT_c = ref_u.const.k_B * 8e8
+        m_red_c = 6 * ref_u.m_p
+        E_G_c = (math.pi * ref_u.alpha * 36)**2 * (m_red_c * ref_u.c**2 / 2)
+        gamow_c = math.exp(-math.sqrt(E_G_c / kT_c))
+        carbon_rate = ref_u.alpha**2 * gamow_c
+
+        _REF_RATES = {'pp': pp_rate, 'cno': cno_rate, 'triple_alpha': ta_rate, 'carbon': carbon_rate}
+    return _REF_RATES
+
+
 class StellarNucleosynthesis:
     """Расширенный класс для всех процессов звездного нуклеосинтеза"""
     
     def __init__(self, universe: UniverseParameters, nuclear: NuclearPhysics):
         self.u = universe
         self.nuclear = nuclear
-        self._pp_rate_ref = None
-        self._cno_rate_ref = None
-        self._triple_alpha_ref = None
         
     # ===== Водородное горение =====
     
@@ -197,7 +233,7 @@ class StellarNucleosynthesis:
             T: температура в K
         """
         kT = self.u.const.k_B * T
-        m_reduced = self.u.const.m_p / 2
+        m_reduced = self.u.m_p / 2  # приведённая масса p+p
         
         # Гамов-фактор для туннелирования
         E_G = (math.pi * self.u.alpha)**2 * (m_reduced * self.u.c**2 / 2)
@@ -205,15 +241,13 @@ class StellarNucleosynthesis:
         
         # Скорость реакции
         rate = self.u.alpha**2 * (kT)**(2/3) * gamow
-        
-        if self._pp_rate_ref is None:
-            self._pp_rate_ref = rate
+        ref = _get_ref_rates()['pp']
             
         # Время жизни водорода в звезде (упрощенно)
-        tau_h = 1e10 / rate * self._pp_rate_ref  # в годах
+        tau_h = 1e10 / rate * ref  # в годах
             
         return {
-            'rate_relative': rate / self._pp_rate_ref,
+            'rate_relative': rate / ref,
             'gamow_factor': gamow,
             'tau_hydrogen_years': tau_h,
             'barrier_mev': self.nuclear.coulomb_barrier(1, 1, 1, 1) / (self.u.const.e * 1e6)
@@ -237,23 +271,21 @@ class StellarNucleosynthesis:
         Z_avg = 7
         A_avg = 14
         
-        # Энергия Гамова
-        m_reduced = self.u.const.m_p * A_avg / (A_avg + 1)
+        # Энергия Гамова (приведённая масса)
+        m_reduced = self.u.m_p * A_avg / (A_avg + 1)
         E_G = (math.pi * self.u.alpha * Z_avg)**2 * (m_reduced * self.u.c**2 / 2)
         gamow = math.exp(-math.sqrt(E_G / kT))
         
         # Скорость реакции (пропорциональна обилию CNO и α)
         abundance_factor = 0.01  # типичное обилие CNO в звездах
         rate = abundance_factor * self.u.alpha * gamow
-        
-        if self._cno_rate_ref is None:
-            self._cno_rate_ref = rate
+        ref = _get_ref_rates()['cno']
         
         # Температурная чувствительность
         dlnr_dlnT = (E_G / kT)**0.5 / 3
         
         return {
-            'rate_relative': rate / self._cno_rate_ref,
+            'rate_relative': rate / ref,
             'gamow_factor': gamow,
             'T_sensitivity': dlnr_dlnT
         }
@@ -294,12 +326,10 @@ class StellarNucleosynthesis:
         
         # Скорость тройной альфа
         rate = K_eq * resonance_factor * self.u.alpha**3
-        
-        if self._triple_alpha_ref is None:
-            self._triple_alpha_ref = rate
+        ref = _get_ref_rates()['triple_alpha']
         
         return {
-            'rate_relative': rate / self._triple_alpha_ref,
+            'rate_relative': rate / ref,
             'resonance_energy_kev': E_res / self.u.const.e / 1000,
             'resonance_factor': resonance_factor,
             'Be_abundance': K_eq,
@@ -317,8 +347,8 @@ class StellarNucleosynthesis:
         Z_target = target_Z
         A_target = target_A
         
-        # Приведенная масса
-        m_reduced = (4 * A_target) / (4 + A_target) * self.u.const.m_p
+        # Приведенная масса (α + ядро-мишень)
+        m_reduced = (4 * A_target) / (4 + A_target) * self.u.m_p
         
         # Кулоновский барьер
         E_G = (math.pi * self.u.alpha * 2 * Z_target)**2 * (m_reduced * self.u.c**2 / 2)
@@ -341,18 +371,19 @@ class StellarNucleosynthesis:
         # Кулоновский барьер для C+C
         Z = 6
         A = 12
-        m_reduced = A/2 * self.u.const.m_p
+        m_reduced = A/2 * self.u.m_p
         E_G = (math.pi * self.u.alpha * Z**2)**2 * (m_reduced * self.u.c**2 / 2)
         gamow = math.exp(-math.sqrt(E_G / kT))
         
-        # Скорость реакции (сильно зависит от α)
+        # Скорость реакции (сильно зависит от α и m_p через Gamow)
         rate = self.u.alpha**2 * gamow
+        ref = _get_ref_rates()['carbon']
         
         # Температура зажигания
         T_ignition = 8e8 * (self.u.alpha / (1/137.036))**2  # приблизительно
         
         return {
-            'rate_relative': rate / (rate if hasattr(self, '_c_ref') else rate),
+            'rate_relative': rate / ref,
             'T_ignition': T_ignition,
             'gamow': gamow
         }
@@ -365,7 +396,7 @@ class StellarNucleosynthesis:
         
         Z = 8
         A = 16
-        m_reduced = A/2 * self.u.const.m_p
+        m_reduced = A/2 * self.u.m_p
         E_G = (math.pi * self.u.alpha * Z**2)**2 * (m_reduced * self.u.c**2 / 2)
         gamow = math.exp(-math.sqrt(E_G / kT))
         
@@ -513,9 +544,11 @@ class StellarNucleosynthesis:
             'Fe_core': ['Fe', 'Co', 'Ni']
         }
         
-        # Зависимость от α: масса железного ядра
+        # Зависимость от α и G: масса железного ядра
         # Больше α → сильнее кулон → меньше железное ядро
-        M_fe_core = 1.4 * (self.u.alpha / (1/137.036))**(-0.5)  # массы Солнца
+        # M_Ch ~ G^(-1.5): меньше G → больше предельная масса белого карлика
+        G_ratio = self.u.G / self.u.const.G
+        M_fe_core = 1.4 * (self.u.alpha / (1/137.036))**(-0.5) * (G_ratio)**(-0.5)  # массы Солнца
         
         # Порог коллапса
         if M_fe_core > 1.8:  # слишком большое ядро
