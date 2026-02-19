@@ -314,6 +314,88 @@ def run_8d_optimizer():
     }
 
 
+def run_9d_optimizer():
+    """Запуск 9D оптимизатора (α, m_p, m_e, G, c, ħ, ε₀, k_B, H₀)"""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("opt9d", Path(__file__).parent / "9D_optimizator.py")
+    opt9 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(opt9)
+    
+    hv = opt9.HyperVolume9D()
+    results = hv.generate_9d_adaptive(
+        alpha_range=(1/400, 1/15),
+        m_p_range=(0.1, 5.0),
+        m_e_range=(0.1, 5.0),
+        G_range=(0.05, 10.0),
+        c_range=(0.2, 3.0),
+        hbar_range=(0.2, 3.0),
+        epsilon_0_range=(0.1, 5.0),
+        k_B_range=(0.1, 5.0),
+        H0_range=(0.2, 5.0),
+        coarse_points=3,
+        zoom_points=3,
+        zoom_fraction=0.25,
+        max_refinements=2
+    )
+    vol = hv.calculate_9d_volume(threshold=0.6)
+    
+    return {
+        'best_alpha': results['best_alpha'],
+        'best_m_p': results['best_m_p'],
+        'best_m_e': results['best_m_e'],
+        'best_G': results['best_G'],
+        'best_c': results['best_c'],
+        'best_hbar': results['best_hbar'],
+        'best_eps': results['best_eps'],
+        'best_k_B': results['best_k_B'],
+        'best_H0': results['best_H0'],
+        'best_score': results['best_score'],
+        'habitable_fraction': vol.get('fraction', 0),
+    }
+
+
+def run_10d_optimizer():
+    """Запуск 10D оптимизатора (α, m_p, m_e, G, c, ħ, ε₀, k_B, H₀, Λ)"""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("opt10d", Path(__file__).parent / "10D_optimizator.py")
+    opt10 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(opt10)
+
+    hv = opt10.HyperVolume10D()
+    results = hv.generate_10d_adaptive(
+        alpha_range=(1/400, 1/15),
+        m_p_range=(0.1, 5.0),
+        m_e_range=(0.1, 5.0),
+        G_range=(0.05, 10.0),
+        c_range=(0.2, 3.0),
+        hbar_range=(0.2, 3.0),
+        epsilon_0_range=(0.1, 5.0),
+        k_B_range=(0.1, 5.0),
+        H0_range=(0.2, 5.0),
+        Lambda_range=(0.1, 10.0),
+        coarse_points=3,
+        zoom_points=2,
+        zoom_fraction=0.25,
+        max_refinements=2
+    )
+    vol = hv.calculate_10d_volume(threshold=0.6)
+
+    return {
+        'best_alpha': results['best_alpha'],
+        'best_m_p': results['best_m_p'],
+        'best_m_e': results['best_m_e'],
+        'best_G': results['best_G'],
+        'best_c': results['best_c'],
+        'best_hbar': results['best_hbar'],
+        'best_eps': results['best_eps'],
+        'best_k_B': results['best_k_B'],
+        'best_H0': results['best_H0'],
+        'best_Lambda': results['best_Lambda'],
+        'best_score': results['best_score'],
+        'habitable_fraction': vol.get('fraction', 0),
+    }
+
+
 def main():
     Path('reports').mkdir(exist_ok=True)
     Path('reports/figures').mkdir(exist_ok=True)
@@ -387,6 +469,24 @@ def main():
         print(f"   ✗ Ошибка: {e}")
         all_results['8D'] = {'error': str(e)}
     
+    # 9D
+    print("\n📊 9D ОПТИМИЗАТОР (α, m_p, m_e, G, c, ħ, ε₀, k_B, H₀)...")
+    try:
+        all_results['9D'] = run_9d_optimizer()
+        print("   ✓ Завершено")
+    except Exception as e:
+        print(f"   ✗ Ошибка: {e}")
+        all_results['9D'] = {'error': str(e)}
+
+    # 10D
+    print("\n📊 10D ОПТИМИЗАТОР (α, m_p, m_e, G, c, ħ, ε₀, k_B, H₀, Λ)...")
+    try:
+        all_results['10D'] = run_10d_optimizer()
+        print("   ✓ Завершено")
+    except Exception as e:
+        print(f"   ✗ Ошибка: {e}")
+        all_results['10D'] = {'error': str(e)}
+    
     # Генерация отчета
     report_path = Path('reports/OPTIMIZATION_REPORT.md')
     generate_report(all_results, report_path)
@@ -416,7 +516,7 @@ def generate_report(results: dict, path: Path):
             return f"{v:.{p}f}"
         return str(v)
     
-    for dim in ['2D', '3D', '4D', '5D', '6D', '7D', '8D']:
+    for dim in ['2D', '3D', '4D', '5D', '6D', '7D', '8D', '9D', '10D']:
         r = results.get(dim, {})
         if 'error' in r:
             lines.append(f"| {dim} | — | Ошибка | — |")
@@ -448,7 +548,7 @@ def generate_report(results: dict, path: Path):
             "",
         ])
     
-    for dim in ['3D', '4D', '5D', '6D', '7D', '8D']:
+    for dim in ['3D', '4D', '5D', '6D', '7D', '8D', '9D', '10D']:
         r = results.get(dim, {})
         lines.append(f"## {dim}")
         lines.append("")
@@ -456,7 +556,8 @@ def generate_report(results: dict, path: Path):
             lines.append(f"Ошибка: {r['error']}")
         else:
             param_map = {'alpha': 'best_alpha', 'm_p': 'best_m_p', 'm_e': 'best_m_e', 
-                     'G': 'best_G', 'c': 'best_c', 'hbar': 'best_hbar', 'ε₀': 'best_eps', 'k_B': 'best_k_B'}
+                     'G': 'best_G', 'c': 'best_c', 'hbar': 'best_hbar', 'ε₀': 'best_eps', 
+                     'k_B': 'best_k_B', 'H₀': 'best_H0', 'Λ': 'best_Lambda'}
             for pname, key in param_map.items():
                 v = r.get(key)
                 if v is not None:

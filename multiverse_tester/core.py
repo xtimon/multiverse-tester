@@ -21,6 +21,8 @@ class UniversalConstants:
     m_n: float = 1.674927471e-27  # кг
     k_B: float = 1.380649e-23  # Дж/К
     e: float = 1.60217662e-19  # Кл
+    H_0: float = 2.2e-18  # с⁻¹ (70 км/с/Мпк)
+    Lambda: float = 1.1e-52  # м⁻² (космологическая постоянная)
     # Атомные массы (в кг)
     m_he4: float = 6.6464764e-27  # кг (4He)
     m_c12: float = 1.9926467e-26  # кг (12C)
@@ -33,12 +35,17 @@ class UniverseParameters:
     """Полное описание Вселенной"""
     
     def __init__(self, name="Our Universe", alpha=None, e=None, m_p=None,
-                 m_e=None, hbar=None, c=None, G=None, epsilon_0=None, k_B=None):
+                 m_e=None, hbar=None, c=None, G=None, epsilon_0=None, k_B=None,
+                 H_0=None, Lambda=None):
         self.name = name
         self.const = UniversalConstants()
         
         self.k_B = k_B if k_B is not None else self.const.k_B
         self.const.k_B = self.k_B
+        self.H_0 = H_0 if H_0 is not None else self.const.H_0
+        self.const.H_0 = self.H_0
+        self.Lambda = Lambda if Lambda is not None else self.const.Lambda
+        self.const.Lambda = self.Lambda
         self.hbar = hbar if hbar else self.const.hbar
         self.c = c if c else self.const.c
         self.G = G if G else self.const.G
@@ -661,16 +668,35 @@ class UniverseAnalyzer:
         else:
             metrics['r_process'] = 0.0
         
+        # 9. Космология (H₀, Λ)
+        t_Hubble = 1.0 / self.u.H_0 if self.u.H_0 > 0 else 1e20  # с
+        t_Gyr = t_Hubble / 3.15e16
+        if 2 < t_Gyr < 100:  # 2–100 млрд лет
+            metrics['cosmology_H'] = 1.0
+        elif 0.5 < t_Gyr < 200:
+            metrics['cosmology_H'] = 0.5
+        else:
+            metrics['cosmology_H'] = 0.0
+        Lambda_ratio = self.u.Lambda / self.u.const.Lambda if self.u.const.Lambda != 0 else 1.0
+        if 0.1 < Lambda_ratio < 50:
+            metrics['cosmology_Lambda'] = 1.0
+        elif 0.01 < Lambda_ratio < 200:
+            metrics['cosmology_Lambda'] = 0.5
+        else:
+            metrics['cosmology_Lambda'] = 0.0
+        
         # Вычисляем общий индекс
         weights = {
-            'atomic': 0.15,
-            'chemistry': 0.20,
-            'nuclear': 0.15,
-            'carbon': 0.15,
-            'heavy_elements': 0.10,
-            'fusion': 0.10,
+            'atomic': 0.14,
+            'chemistry': 0.19,
+            'nuclear': 0.14,
+            'carbon': 0.14,
+            'heavy_elements': 0.09,
+            'fusion': 0.09,
             'supernova': 0.05,
-            'r_process': 0.10
+            'r_process': 0.09,
+            'cosmology_H': 0.04,
+            'cosmology_Lambda': 0.04
         }
         
         total_score = sum(metrics.get(k, 0) * weights[k] for k in weights)
