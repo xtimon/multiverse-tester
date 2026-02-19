@@ -91,6 +91,10 @@ multiverse-optimize-10d
 
 ### Интерактивное веб-демо (Streamlit)
 
+**[🌌 Запустить демо онлайн](https://multiverse-tester-3sfbtfwmf3u4hnkdzu9big.streamlit.app)**
+
+Или локально:
+
 ```bash
 pip install streamlit   # или: pip install ".[demo]"
 streamlit run streamlit_demo.py
