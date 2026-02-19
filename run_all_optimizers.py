@@ -24,10 +24,10 @@ _fig_counter = [0]  # mutable for closure
 _fig_dir = None
 
 def _save_fig_instead_of_show():
-    """Сохраняет текущий рисунок в папку reports/figures вместо показа"""
+    """Сохраняет текущий рисунок в папку reports вместо показа"""
     global _fig_counter, _fig_dir
     if _fig_dir is None:
-        _fig_dir = Path('reports/figures')
+        _fig_dir = Path('reports')
         _fig_dir.mkdir(parents=True, exist_ok=True)
     for i, fig in enumerate(plt.get_fignums()):
         f = plt.figure(fig)
@@ -97,6 +97,20 @@ def run_2d_optimizer():
     habitable = score_map > 0.6
     results['habitable_fraction_2d'] = habitable.sum() / habitable.size
     
+    # Figure: 2D heatmap
+    fig, ax = plt.subplots(figsize=(8, 6))
+    im = ax.imshow(score_map.T, aspect='auto',
+                   extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
+                   origin='lower', cmap='RdYlGn', vmin=0, vmax=1)
+    ax.set_xlabel('α')
+    ax.set_ylabel('m_p / m_p₀')
+    ax.set_title('2D Habitability Landscape (α, m_p)')
+    ax.axhline(1.0, color='gray', linestyle='--', alpha=0.5)
+    ax.axvline(1/137.036, color='gray', linestyle='--', alpha=0.5)
+    plt.colorbar(im, ax=ax, label='Habitability score')
+    plt.tight_layout()
+    plt.show()
+    
     return results
 
 
@@ -125,6 +139,20 @@ def run_3d_optimizer():
     
     max_idx = np.unravel_index(np.argmax(score_3d), score_3d.shape)
     habitable = score_3d > 0.6
+
+    # Figure: 2D slice at middle m_e
+    mid_k = points // 2
+    slice_2d = score_3d[:, :, mid_k]
+    fig, ax = plt.subplots(figsize=(8, 6))
+    im = ax.imshow(slice_2d.T, aspect='auto',
+                   extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
+                   origin='lower', cmap='RdYlGn', vmin=0, vmax=1)
+    ax.set_xlabel('α')
+    ax.set_ylabel('m_p / m_p₀')
+    ax.set_title(f'3D Slice: m_e/m_e₀ = {m_e_ratios[mid_k]:.2f}')
+    plt.colorbar(im, ax=ax, label='Habitability')
+    plt.tight_layout()
+    plt.show()
     
     return {
         'best_alpha': alphas[max_idx[0]],
@@ -168,6 +196,20 @@ def run_4d_optimizer():
     
     max_idx = np.unravel_index(np.argmax(score_4d), score_4d.shape)
     habitable = score_4d > 0.6
+
+    # Figure: 2D slice (α, m_p) at middle m_e, G
+    mid_k, mid_l = points // 2, points // 2
+    slice_2d = score_4d[:, :, mid_k, mid_l]
+    fig, ax = plt.subplots(figsize=(8, 6))
+    im = ax.imshow(slice_2d.T, aspect='auto',
+                   extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
+                   origin='lower', cmap='RdYlGn', vmin=0, vmax=1)
+    ax.set_xlabel('α')
+    ax.set_ylabel('m_p / m_p₀')
+    ax.set_title(f'4D Slice: m_e/m_e₀={m_e_ratios[mid_k]:.2f}, G/G₀={G_ratios[mid_l]:.2f}')
+    plt.colorbar(im, ax=ax, label='Habitability')
+    plt.tight_layout()
+    plt.show()
     
     return {
         'best_alpha': alphas[max_idx[0]],
@@ -197,6 +239,10 @@ def run_5d_optimizer():
         points=6
     )
     vol = hv.calculate_5d_volume(threshold=0.6)
+
+    # Figure: 5D 2D projections
+    viz = opt5.Visualizer5D(hv)
+    viz.plot_2d_projections(threshold=0.6)
     
     return {
         'best_alpha': results['best_alpha'],
@@ -227,6 +273,10 @@ def run_6d_optimizer():
         points=5  # 5^6 = 15625
     )
     vol = hv.calculate_6d_volume(threshold=0.6)
+
+    # Figures: 6D parameter importance
+    viz = opt6.Visualizer6D(hv)
+    viz.plot_parameter_importance()
     
     return {
         'best_alpha': results['best_alpha'],
@@ -262,6 +312,26 @@ def run_7d_optimizer():
         max_refinements=2
     )
     vol = hv.calculate_7d_volume(threshold=0.6)
+
+    # Figure: 7D 2D slice (α, m_p) at middle of other dims
+    import numpy as np
+    score_7d = hv.results['score_7d']
+    pts = score_7d.shape[0]
+    mid = pts // 2
+    slice_2d = score_7d[:, :, mid, mid, mid, mid, mid]
+    alphas = hv.results['alphas']
+    m_p_ratios = hv.results['m_p_ratios']
+    fig, ax = plt.subplots(figsize=(8, 6))
+    im = ax.imshow(slice_2d.T, aspect='auto',
+                   extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
+                   origin='lower', cmap='RdYlGn', vmin=0, vmax=1,
+                   interpolation='bilinear')
+    ax.set_xlabel('α')
+    ax.set_ylabel('m_p / m_p₀')
+    ax.set_title(f'7D Slice: (α, m_p) | coarse {pts}×{pts}')
+    plt.colorbar(im, ax=ax, label='Habitability')
+    plt.tight_layout()
+    plt.show()
     
     return {
         'best_alpha': results['best_alpha'],
@@ -299,6 +369,26 @@ def run_8d_optimizer():
         max_refinements=2
     )
     vol = hv.calculate_8d_volume(threshold=0.6)
+
+    # Figure: 8D 2D slice (α, m_p) at middle of other dims
+    import numpy as np
+    score_8d = hv.results['score_8d']
+    pts = score_8d.shape[0]
+    mid = pts // 2
+    slice_2d = score_8d[:, :, mid, mid, mid, mid, mid, mid]
+    alphas = hv.results['alphas']
+    m_p_ratios = hv.results['m_p_ratios']
+    fig, ax = plt.subplots(figsize=(8, 6))
+    im = ax.imshow(slice_2d.T, aspect='auto',
+                   extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
+                   origin='lower', cmap='RdYlGn', vmin=0, vmax=1,
+                   interpolation='bilinear')
+    ax.set_xlabel('α')
+    ax.set_ylabel('m_p / m_p₀')
+    ax.set_title(f'8D Slice: (α, m_p) | coarse {pts}×{pts}')
+    plt.colorbar(im, ax=ax, label='Habitability')
+    plt.tight_layout()
+    plt.show()
     
     return {
         'best_alpha': results['best_alpha'],
@@ -338,6 +428,26 @@ def run_9d_optimizer():
         max_refinements=2
     )
     vol = hv.calculate_9d_volume(threshold=0.6)
+
+    # Figure: 9D 2D slice (α, m_p) at middle of other dims
+    import numpy as np
+    score_9d = hv.results['score_9d']
+    pts = score_9d.shape[0]
+    mid = pts // 2
+    slice_2d = score_9d[:, :, mid, mid, mid, mid, mid, mid, mid]
+    alphas = hv.results['alphas']
+    m_p_ratios = hv.results['m_p_ratios']
+    fig, ax = plt.subplots(figsize=(8, 6))
+    im = ax.imshow(slice_2d.T, aspect='auto',
+                   extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
+                   origin='lower', cmap='RdYlGn', vmin=0, vmax=1,
+                   interpolation='bilinear')
+    ax.set_xlabel('α')
+    ax.set_ylabel('m_p / m_p₀')
+    ax.set_title(f'9D Slice: (α, m_p) | coarse {pts}×{pts}')
+    plt.colorbar(im, ax=ax, label='Habitability')
+    plt.tight_layout()
+    plt.show()
     
     return {
         'best_alpha': results['best_alpha'],
@@ -380,6 +490,26 @@ def run_10d_optimizer():
     )
     vol = hv.calculate_10d_volume(threshold=0.6)
 
+    # Figure: 10D 2D slice (α, m_p) at middle of other dims
+    import numpy as np
+    score_10d = hv.results['score_10d']
+    pts = score_10d.shape[0]
+    mid = pts // 2
+    slice_2d = score_10d[:, :, mid, mid, mid, mid, mid, mid, mid, mid]
+    alphas = hv.results['alphas']
+    m_p_ratios = hv.results['m_p_ratios']
+    fig, ax = plt.subplots(figsize=(8, 6))
+    im = ax.imshow(slice_2d.T, aspect='auto',
+                   extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
+                   origin='lower', cmap='RdYlGn', vmin=0, vmax=1,
+                   interpolation='bilinear')
+    ax.set_xlabel('α')
+    ax.set_ylabel('m_p / m_p₀')
+    ax.set_title(f'10D Slice: (α, m_p) | coarse {pts}×{pts}')
+    plt.colorbar(im, ax=ax, label='Habitability')
+    plt.tight_layout()
+    plt.show()
+    
     return {
         'best_alpha': results['best_alpha'],
         'best_m_p': results['best_m_p'],
@@ -398,7 +528,6 @@ def run_10d_optimizer():
 
 def main():
     Path('reports').mkdir(exist_ok=True)
-    Path('reports/figures').mkdir(exist_ok=True)
     
     all_results = {}
     
@@ -487,6 +616,32 @@ def main():
         print(f"   ✗ Ошибка: {e}")
         all_results['10D'] = {'error': str(e)}
     
+    # Figure: Summary — habitable fraction by dimension
+    dims = ['2D', '3D', '4D', '5D', '6D', '7D', '8D', '9D', '10D']
+    fracs = []
+    has_error = []
+    for d in dims:
+        r = all_results.get(d, {})
+        has_error.append('error' in r)
+        f = r.get('habitable_fraction')  # явно: 0 это валидное значение
+        if f is None:
+            f = r.get('habitable_fraction_2d')
+        fracs.append(f * 100 if f is not None and not has_error[-1] else 0)
+    colors = ['#c0392b' if err else 'steelblue' for err in has_error]
+    fig, ax = plt.subplots(figsize=(10, 5))
+    bars = ax.bar(dims, fracs, color=colors, alpha=0.8)
+    ax.set_xlabel('Dimension')
+    ax.set_ylabel('Habitable fraction (%)')
+    ax.set_title('Habitable Fraction of Parameter Space by Dimension')
+    ax.set_ylim(0, max(fracs) * 1.2 + 1 if fracs else 10)
+    for b, v, err in zip(bars, fracs, has_error):
+        lbl = 'err' if err else f'{v:.2f}%'
+        y_pos = max(b.get_height(), 1) + 0.5  # avoid overlapping with axis for zero bars
+        ax.text(b.get_x() + b.get_width()/2, y_pos, lbl,
+                ha='center', va='bottom', fontsize=9)
+    plt.tight_layout()
+    plt.show()
+    
     # Генерация отчета
     report_path = Path('reports/OPTIMIZATION_REPORT.md')
     generate_report(all_results, report_path)
@@ -524,8 +679,10 @@ def generate_report(results: dict, path: Path):
         
         alpha = r.get('best_alpha', r.get('opt_alpha', r.get('opt_alpha_2d')))
         score = r.get('best_score', r.get('opt_2d_score', r.get('opt_alpha_score')))
-        frac = r.get('habitable_fraction', r.get('habitable_fraction_2d', 0))
-        if frac:
+        frac = r.get('habitable_fraction')
+        if frac is None:
+            frac = r.get('habitable_fraction_2d')
+        if frac is not None:  # 0 — валидное значение
             frac_str = f"{frac*100:.2f}%"
         else:
             frac_str = "—"
@@ -564,7 +721,7 @@ def generate_report(results: dict, path: Path):
                     lines.append(f"- Оптимальная {pname}: {v:.4f}")
             if r.get('best_score'):
                 lines.append(f"- Лучший индекс пригодности: {r['best_score']:.3f}")
-            if r.get('habitable_fraction'):
+            if r.get('habitable_fraction') is not None:
                 lines.append(f"- Доля пригодного пространства: {r['habitable_fraction']*100:.2f}%")
         lines.append("")
     

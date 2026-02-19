@@ -292,19 +292,24 @@ class Visualizer6D:
             
             # График зависимости
             ax = axes[dim]
-            ax.plot(param_arrays[dim], mean_over_dim, 'b-', linewidth=2)
+            ax.plot(param_arrays[dim], mean_over_dim, 'b-o', linewidth=2, markersize=5)
             ax.axvline(x=1.0 if dim != 0 else 1/137.036, 
                       color='r', linestyle='--', label='Наша')
             ax.set_xlabel(param_names[dim])
             ax.set_ylabel('Средняя пригодность')
             ax.set_title(f'Зависимость от {param_names[dim]}')
+            ax.set_ylim(0, 1)
             ax.grid(True, alpha=0.3)
             if dim == 0:
                 ax.legend()
         
-        # Нормируем важность
-        importances = np.array(importances)
-        importances = importances / np.sum(importances) * 100
+        # Нормируем важность (с защитой от деления на ноль)
+        importances = np.array(importances, dtype=float)
+        total = np.sum(importances)
+        if total > 0:
+            importances = importances / total * 100
+        else:
+            importances = np.zeros(6)  # все нули при отсутствии вариации
         
         print(f"\n📊 ВАЖНОСТЬ ПАРАМЕТРОВ:")
         for name, imp in zip(param_names, importances):
@@ -315,14 +320,19 @@ class Visualizer6D:
         plt.tight_layout()
         plt.show()
         
-        # Круговая диаграмма важности
-        fig2, ax2 = plt.subplots(1, 1, figsize=(10, 8))
+        # Горизонтальный bar chart вместо pie — лучше при доминировании одного параметра
+        fig2, ax2 = plt.subplots(1, 1, figsize=(10, 6))
         colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dfe6e9']
-        wedges, texts, autotexts = ax2.pie(importances, labels=param_names, 
-                                           colors=colors, autopct='%1.1f%%',
-                                           startangle=90)
+        y_pos = np.arange(len(param_names))
+        bars = ax2.barh(y_pos, importances, color=colors, alpha=0.8)
+        ax2.set_yticks(y_pos)
+        ax2.set_yticklabels(param_names, fontsize=11)
+        ax2.set_xlabel('Вклад в важность (%)')
         ax2.set_title('Вклад параметров в пригодность Вселенной', fontsize=14)
-        
+        ax2.invert_yaxis()  # α сверху
+        for i, (b, v) in enumerate(zip(bars, importances)):
+            ax2.text(b.get_width() + 0.5, b.get_y() + b.get_height()/2, 
+                     f'{v:.1f}%', va='center', fontsize=9)
         plt.tight_layout()
         plt.show()
         
