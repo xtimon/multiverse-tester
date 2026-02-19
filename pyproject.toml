@@ -44,7 +44,7 @@ demo = [
 Homepage = "https://github.com/timurisanov/multiverse-tester"
 Repository = "https://github.com/timurisanov/multiverse-tester"
 Documentation = "https://github.com/timurisanov/multiverse-tester#readme"
-Live Demo = "https://multiverse-tester-3sfbtfwmf3u4hnkdzu9big.streamlit.app"
+"Live Demo" = "https://multiverse-tester-3sfbtfwmf3u4hnkdzu9big.streamlit.app"
 
 [project.scripts]
 multiverse-analyze = "multiverse_tester.cli:main"
