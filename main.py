@@ -8,6 +8,8 @@ Author: Timur Isanov
 Email: tisanov@yahoo.com
 """
 
+import matplotlib.pyplot as plt
+
 from multiverse_tester import (
     UniverseParameters,
     UniverseAnalyzer,
@@ -27,6 +29,19 @@ if __name__ == "__main__":
         num_points=200,
         log_scale=False,
     )
+
+    # График: индекс пригодности vs α
+    result = explorer.results["alpha"]
+    plt.figure(figsize=(10, 6))
+    plt.plot(result["param_values"], result["habitability_scores"], "b.-", alpha=0.7)
+    plt.axvline(x=1 / 137.036, color="r", linestyle="--", label="Наша Вселенная")
+    plt.xlabel("α (постоянная тонкой структуры)")
+    plt.ylabel("Индекс пригодности")
+    plt.title("Зависимость пригодности от α")
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
     correlations = explorer.analyze_correlations("alpha")
     print("\n📊 Корреляции с α:")
