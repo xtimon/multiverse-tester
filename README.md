@@ -89,10 +89,19 @@ multiverse-optimize-9d
 multiverse-optimize-10d
 ```
 
+### Интерактивное веб-демо (Streamlit)
+
+```bash
+pip install streamlit   # или: pip install ".[demo]"
+streamlit run streamlit_demo.py
+```
+
+Откройте браузер и исследуйте «пузырь жизни» — меняйте ползунки (α, m_p, m_e, G, c, ħ, ε₀) и наблюдайте, как меняется пригодность вселенной. Ландшафт показывает область пригодности в плоскости (α, m_p).
+
 ### Пакетный запуск всех оптимизаторов
 
 ```bash
-python run_all_optimizers.py   # 2D→8D, отчёт в reports/
+python run_all_optimizers.py   # 2D→10D, отчёт в reports/
 ```
 
 ### Запуск скриптов напрямую
