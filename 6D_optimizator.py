@@ -6,7 +6,6 @@
 Параметры: α, m_p, m_e, G, c, ħ (постоянная Планка)
 """
 
-import math
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -17,161 +16,7 @@ from scipy.interpolate import RegularGridInterpolator
 import warnings
 warnings.filterwarnings('ignore')
 
-from multiverse_tester import UniversalConstants, UniverseParameters
-
-
-class UniverseAnalyzer6D:
-    """Анализ пригодности вселенной в 6D пространстве"""
-    
-    def __init__(self, universe: UniverseParameters):
-        self.u = universe
-        self.const = universe.const
-        
-    def calculate_habitability_index(self) -> Tuple[None, float, Dict]:
-        """
-        Вычисляет индекс пригодности для жизни (0-1)
-        Учитывает ВСЕ 6 фундаментальных параметров
-        """
-        score = 0.0
-        metrics = {}
-        
-        # Нормированные параметры
-        alpha_norm = self.u.alpha / (1/137.036)
-        m_p_norm = self.u.m_p / self.const.m_p
-        m_e_norm = self.u.m_e / self.const.m_e
-        G_norm = self.u.G / self.const.G
-        c_norm = self.u.c / self.const.c
-        hbar_norm = self.u.hbar / self.const.hbar
-        
-        # ===== 1. АТОМНАЯ СТАБИЛЬНОСТЬ =====
-        # a0 = ℏ/(m_e c α), λc = ℏ/(m_e c) → a0/λc = 1/α (только от α!)
-        # В нашей Вселенной a0/λc ≈ 137
-        a0_over_lambda_c = 1.0 / (self.u.alpha)
-        
-        # Оптимальный диапазон для стабильных атомов: 50-500
-        if 50 < a0_over_lambda_c < 500:
-            atomic_score = 1.0
-        elif 20 < a0_over_lambda_c < 1000:
-            atomic_score = 0.7
-        elif 10 < a0_over_lambda_c < 2000:
-            atomic_score = 0.3
-        else:
-            atomic_score = 0.0
-            
-        metrics['atomic'] = atomic_score
-        score += 0.15 * atomic_score
-        
-        # ===== 2. ХИМИЧЕСКИЕ СВЯЗИ =====
-        # Энергия связи ∝ α² * m_e * c² / ħ² (нормируем)
-        # Фактически: энергия Ридберга = (α² m_e c²) / 2
-        binding_energy = alpha_norm**2 * m_e_norm * c_norm**2 / hbar_norm**2
-        
-        if 0.3 < binding_energy < 3:
-            chem_score = 1.0 - abs(binding_energy - 1) * 0.5
-        elif 0.1 < binding_energy < 5:
-            chem_score = 0.5
-        else:
-            chem_score = 0.0
-            
-        metrics['chemistry'] = chem_score
-        score += 0.15 * chem_score
-        
-        # ===== 3. ЯДЕРНАЯ СТАБИЛЬНОСТЬ =====
-        # Энергия связи ядер зависит от α, m_p и ħ
-        # Кулоновский барьер ∝ α ħ c / r
-        nuclear_energy = alpha_norm * hbar_norm * c_norm * m_p_norm
-        
-        if 0.5 < nuclear_energy < 2:
-            nuclear_score = 1.0 - abs(nuclear_energy - 1) * 0.7
-        elif 0.2 < nuclear_energy < 3:
-            nuclear_score = 0.5
-        else:
-            nuclear_score = 0.0
-            
-        metrics['nuclear'] = nuclear_score
-        score += 0.15 * nuclear_score
-        
-        # ===== 4. ЗВЕЗДНЫЙ СИНТЕЗ =====
-        # Время жизни звезд ∝ ħ c⁵/(G² m_p⁵)
-        stellar_lifetime = hbar_norm * c_norm**5 / (G_norm**2 * m_p_norm**5)
-        
-        # Температура в центре звезд ∝ G m_p m_e c² / (k_B ħ)
-        stellar_temp = G_norm * m_p_norm * m_e_norm * c_norm**2 / hbar_norm
-        
-        # Тройная альфа реакция (образование углерода)
-        triple_alpha = math.exp(-abs(alpha_norm - 1)/0.5) * stellar_temp**0.5
-        
-        # Комбинированная оценка
-        if 0.1 < stellar_lifetime < 100 and 0.3 < stellar_temp < 3:
-            stellar_score = 0.7 * (1 - 0.5*abs(math.log10(stellar_lifetime))) + 0.3 * triple_alpha
-        else:
-            stellar_score = 0.0
-            
-        metrics['stellar'] = stellar_score
-        score += 0.20 * stellar_score
-        
-        # ===== 5. РЕЛЯТИВИСТСКИЕ ЭФФЕКТЫ =====
-        # Скорость света определяет максимальную скорость
-        # Отношение тепловой скорости к c
-        v_thermal_c = 0.01 * c_norm  # упрощенно
-        
-        if v_thermal_c < 0.1:
-            rel_score = 1.0
-        elif v_thermal_c < 0.3:
-            rel_score = 0.7
-        elif v_thermal_c < 0.5:
-            rel_score = 0.3
-        else:
-            rel_score = 0.0
-            
-        metrics['relativity'] = rel_score
-        score += 0.10 * rel_score
-        
-        # ===== 6. ГРАВИТАЦИОННАЯ СТРУКТУРА =====
-        # α_G = G m_p² / (ħ c) - гравитационная константа связи (безразмерная)
-        # α_EM = α - электромагнитная константа связи
-        # Отношение α_G/α ~ 6×10⁻³⁹ в нашей Вселенной
-        alpha_G = (self.u.G * self.u.m_p**2) / (self.u.hbar * self.u.c)
-        alpha_EM = self.u.alpha
-        grav_em_ratio = alpha_G / alpha_EM
-        
-        # Референс для нашей Вселенной: ~6×10⁻³⁹
-        if 1e-40 < grav_em_ratio < 1e-36:
-            grav_score = 1.0
-        elif 1e-42 < grav_em_ratio < 1e-34:
-            grav_score = 0.7
-        elif 1e-44 < grav_em_ratio < 1e-32:
-            grav_score = 0.3
-        else:
-            grav_score = 0.0
-            
-        metrics['gravity'] = grav_score
-        score += 0.15 * grav_score
-        
-        # ===== 7. КВАНТОВЫЕ ЭФФЕКТЫ (НОВЫЙ) =====
-        # Постоянная Планка определяет масштаб квантовых явлений
-        # Отношение ħ к "классическому действию"
-        
-        # Квантовость атомов: ħ должна быть достаточно большой
-        # чтобы атомы были стабильны, но не настолько большой,
-        # чтобы всё было размыто
-        
-        quantum_scale = hbar_norm * alpha_norm * c_norm / m_e_norm
-        
-        if 0.5 < quantum_scale < 2:
-            quantum_score = 1.0
-        elif 0.2 < quantum_scale < 5:
-            quantum_score = 0.5
-        else:
-            quantum_score = 0.0
-            
-        metrics['quantum'] = quantum_score
-        score += 0.10 * quantum_score
-        
-        # Нормализуем score до [0, 1]
-        score = min(1.0, max(0.0, score))
-        
-        return None, score, metrics
+from multiverse_tester import UniversalConstants, UniverseParameters, UniverseAnalyzer
 
 
 class HyperVolume6D:
@@ -233,7 +78,7 @@ class HyperVolume6D:
                                         c=c_ratio * self.const.c,
                                         hbar=hbar_ratio * self.const.hbar
                                     )
-                                    analyzer = UniverseAnalyzer6D(u)
+                                    analyzer = UniverseAnalyzer(u)
                                     _, score, _ = analyzer.calculate_habitability_index()
                                     score_6d[i, j, k, l, m, n] = score
                                     
@@ -547,7 +392,7 @@ def main():
         c=UniversalConstants().c,
         hbar=UniversalConstants().hbar
     )
-    our_analyzer = UniverseAnalyzer6D(our_universe)
+    our_analyzer = UniverseAnalyzer(our_universe)
     _, our_score, our_metrics = our_analyzer.calculate_habitability_index()
     
     print(f"\n🌍 НАША ВСЕЛЕННАЯ:")

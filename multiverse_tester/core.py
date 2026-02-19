@@ -33,10 +33,12 @@ class UniverseParameters:
     """Полное описание Вселенной"""
     
     def __init__(self, name="Our Universe", alpha=None, e=None, m_p=None,
-                 m_e=None, hbar=None, c=None, G=None, epsilon_0=None):
+                 m_e=None, hbar=None, c=None, G=None, epsilon_0=None, k_B=None):
         self.name = name
         self.const = UniversalConstants()
         
+        self.k_B = k_B if k_B is not None else self.const.k_B
+        self.const.k_B = self.k_B
         self.hbar = hbar if hbar else self.const.hbar
         self.c = c if c else self.const.c
         self.G = G if G else self.const.G

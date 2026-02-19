@@ -6,7 +6,6 @@
 Параметры: α, m_p, m_e, G, c (скорость света)
 """
 
-import math
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -17,125 +16,7 @@ from scipy.interpolate import RegularGridInterpolator
 import warnings
 warnings.filterwarnings('ignore')
 
-from multiverse_tester import UniversalConstants, UniverseParameters
-
-
-class UniverseAnalyzer5D:
-    """Анализ пригодности вселенной в 5D пространстве"""
-    
-    def __init__(self, universe: UniverseParameters):
-        self.u = universe
-        self.const = universe.const
-        
-    def calculate_habitability_index(self) -> Tuple[None, float, Dict]:
-        """
-        Вычисляет индекс пригодности для жизни (0-1)
-        Учитывает все 5 параметров и их взаимосвязи
-        """
-        score = 0.0
-        metrics = {}
-        
-        # Нормированные параметры
-        alpha_norm = self.u.alpha / (1/137.036)
-        m_p_norm = self.u.m_p / self.const.m_p
-        m_e_norm = self.u.m_e / self.const.m_e
-        G_norm = self.u.G / self.const.G
-        c_norm = self.u.c / self.const.c
-        
-        # ===== 1. АТОМНАЯ СТАБИЛЬНОСТЬ =====
-        # Радиус Бора: a0 ∝ 1/(α * m_e * c^2)
-        a0_ratio = 1/(alpha_norm * m_e_norm * c_norm**2)
-        
-        # Комптоновская длина: λc ∝ 1/(m_e * c)
-        λc_ratio = 1/(m_e_norm * c_norm)
-        
-        # Отношение a0/λc (критично для релятивистских эффектов)
-        a0_λc_ratio = a0_ratio / λc_ratio
-        
-        if 10 < a0_λc_ratio < 1000:
-            atomic_score = 1.0
-        elif 1 < a0_λc_ratio < 10000:
-            atomic_score = 0.5
-        else:
-            atomic_score = 0.01  # минимальное ненулевое значение
-            
-        metrics['atomic'] = atomic_score
-        score += 0.15 * atomic_score
-        
-        # ===== 2. ХИМИЧЕСКИЕ СВЯЗИ =====
-        # Энергия связи ∝ α^2 * m_e * c^2
-        binding_energy = alpha_norm**2 * m_e_norm * c_norm**2
-        
-        if 0.3 < binding_energy < 3:
-            chem_score = 1.0 - abs(binding_energy - 1) * 0.5
-        else:
-            chem_score = 0.0
-            
-        metrics['chemistry'] = chem_score
-        score += 0.20 * chem_score
-        
-        # ===== 3. ЯДЕРНАЯ СТАБИЛЬНОСТЬ =====
-        # Энергия связи ядер зависит от α и m_p
-        nuclear_energy = alpha_norm**(-0.5) * m_p_norm
-        
-        if 0.5 < nuclear_energy < 2:
-            nuclear_score = 1.0 - abs(nuclear_energy - 1) * 0.7
-        else:
-            nuclear_score = 0.0
-            
-        metrics['nuclear'] = nuclear_score
-        score += 0.15 * nuclear_score
-        
-        # ===== 4. ЗВЕЗДНЫЙ СИНТЕЗ =====
-        # Время жизни звезд ∝ 1/(G^2 * m_p^5 * c)
-        stellar_lifetime = 1/(G_norm**2 * m_p_norm**5 * c_norm)
-        
-        # Температура в центре звезд ∝ G * m_p * m_e * c^2 / k_B
-        stellar_temp = G_norm * m_p_norm * m_e_norm * c_norm**2
-        
-        # Тройная альфа реакция (образование углерода)
-        triple_alpha = math.exp(-abs(alpha_norm - 1)/0.5) * stellar_temp**0.5
-        
-        # Комбинированная оценка
-        if 0.1 < stellar_lifetime < 100 and 0.3 < stellar_temp < 3:
-            stellar_score = 0.7 * (1 - 0.5*abs(stellar_lifetime - 1)) + 0.3 * triple_alpha
-        else:
-            stellar_score = 0.0
-            
-        metrics['stellar'] = stellar_score
-        score += 0.25 * stellar_score
-        
-        # ===== 5. РЕЛЯТИВИСТСКИЕ ЭФФЕКТЫ =====
-        # Скорость света определяет максимальную скорость
-        # Отношение тепловой скорости к c
-        v_thermal_c = 0.01 * c_norm  # упрощенно
-        
-        if v_thermal_c < 0.1:  # нерелятивистский режим
-            rel_score = 1.0
-        elif v_thermal_c < 0.5:  # умеренно релятивистский
-            rel_score = 0.5
-        else:  # ультрарелятивистский - атомы нестабильны
-            rel_score = 0.0
-            
-        metrics['relativity'] = rel_score
-        score += 0.10 * rel_score
-        
-        # ===== 6. ГРАВИТАЦИОННАЯ СТРУКТУРА =====
-        # Отношение гравитационной энергии к электромагнитной
-        grav_em_ratio = G_norm * m_p_norm**2 / alpha_norm
-        
-        if 0.01 < grav_em_ratio < 100:
-            grav_score = 1.0 - abs(math.log10(grav_em_ratio)) * 0.2
-        else:
-            grav_score = 0.0
-            
-        metrics['gravity'] = grav_score
-        score += 0.15 * grav_score
-        
-        # Нормализуем score до [0, 1]
-        score = min(1.0, max(0.0, score))
-        
-        return None, score, metrics
+from multiverse_tester import UniversalConstants, UniverseParameters, UniverseAnalyzer
 
 
 class HyperVolume5D:
@@ -192,7 +73,7 @@ class HyperVolume5D:
                                     G=G_ratio * self.const.G,
                                     c=c_ratio * self.const.c
                                 )
-                                analyzer = UniverseAnalyzer5D(u)
+                                analyzer = UniverseAnalyzer(u)
                                 _, score, _ = analyzer.calculate_habitability_index()
                                 score_5d[i, j, k, l, m] = score
                                 
@@ -583,7 +464,7 @@ def main():
         G=UniversalConstants().G,
         c=UniversalConstants().c
     )
-    our_analyzer = UniverseAnalyzer5D(our_universe)
+    our_analyzer = UniverseAnalyzer(our_universe)
     _, our_score, our_metrics = our_analyzer.calculate_habitability_index()
     
     print(f"\n🌍 НАША ВСЕЛЕННАЯ:")
