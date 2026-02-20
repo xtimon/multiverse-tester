@@ -39,6 +39,9 @@ full = [
 demo = [
     "streamlit>=1.28.0",
 ]
+test = [
+    "pytest>=7.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/timurisanov/multiverse-tester"
@@ -52,3 +55,8 @@ multiverse-analyze = "multiverse_tester.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["multiverse_tester*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]

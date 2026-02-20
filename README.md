@@ -28,6 +28,13 @@ twine upload dist/*
 
 **GitHub Actions:** CI запускается на push/PR. Публикация на PyPI — при создании release или push тега `v*`. Добавьте `PYPI_API_TOKEN` в Secrets репозитория.
 
+### Запуск тестов
+
+```bash
+pip install ".[test]"
+pytest tests/ -v
+```
+
 ## Использование
 
 ### Программный интерфейс

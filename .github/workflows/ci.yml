@@ -23,16 +23,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install package
-        run: pip install .
+        run: pip install ".[test]"
 
-      - name: Smoke test
-        run: |
-          python -c "
-          import multiverse_tester
-          from multiverse_tester import UniverseParameters, UniverseAnalyzer
-          u = UniverseParameters()
-          analyzer = UniverseAnalyzer(u)
-          index, score, metrics = analyzer.calculate_habitability_index()
-          assert score is not None, 'Habitability score should be computed'
-          print(f'ok: multiverse_tester {multiverse_tester.__version__}, score={score:.3f}')
-          "
+      - name: Run tests
+        run: pytest tests/ -v
