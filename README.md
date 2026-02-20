@@ -1,7 +1,7 @@
 # MultiverseTester
 
-[![CI](https://github.com/timurisanov/multiverse-tester/actions/workflows/ci.yml/badge.svg)](https://github.com/timurisanov/multiverse-tester/actions/workflows/ci.yml)
-[![Publish to PyPI](https://github.com/timurisanov/multiverse-tester/actions/workflows/publish.yml/badge.svg)](https://github.com/timurisanov/multiverse-tester/actions/workflows/publish.yml)
+[![CI](https://github.com/xtimon/multiverse-tester/actions/workflows/ci.yml/badge.svg)](https://github.com/xtimon/multiverse-tester/actions/workflows/ci.yml)
+[![Publish to PyPI](https://github.com/xtimon/multiverse-tester/actions/workflows/publish.yml/badge.svg)](https://github.com/xtimon/multiverse-tester/actions/workflows/publish.yml)
 
 Симуляция пригодности вселенных для жизни при различных значениях фундаментальных физических констант. Исследует пространство параметров мультивселенной (от 2D до 10D) и вычисляет индекс пригодности.
 
