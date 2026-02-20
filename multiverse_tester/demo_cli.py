@@ -7,17 +7,18 @@
 
 import sys
 import subprocess
+from pathlib import Path
 
 
 def main():
-    """Запускает streamlit run -m multiverse_tester.streamlit_demo с переданными аргументами."""
+    """Запускает streamlit run с путём к streamlit_demo.py."""
+    demo_path = Path(__file__).parent / "streamlit_demo.py"
     cmd = [
         sys.executable,
         "-m",
         "streamlit",
         "run",
-        "-m",
-        "multiverse_tester.streamlit_demo",
+        str(demo_path),
         *sys.argv[1:],
     ]
     subprocess.run(cmd)

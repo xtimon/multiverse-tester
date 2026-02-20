@@ -80,7 +80,7 @@ multiverse-analyze   # основной анализ с графиком
 
 ```bash
 pip install ".[demo]"    # streamlit входит в demo
-multiverse-demo          # или: streamlit run -m multiverse_tester.streamlit_demo
+multiverse-demo          # или: streamlit run multiverse_tester/streamlit_demo.py
 ```
 
 Откройте браузер и исследуйте «пузырь жизни» — меняйте ползунки (α, m_p, m_e, G, c, ħ, ε₀) и наблюдайте, как меняется пригодность вселенной. Ландшафт показывает область пригодности в плоскости (α, m_p).
