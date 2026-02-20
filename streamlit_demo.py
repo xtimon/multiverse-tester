@@ -52,15 +52,24 @@ st.markdown("*Исследуйте, как фундаментальные кон
 st.sidebar.header("🔬 Параметры вселенной")
 st.sidebar.markdown("Относительно нашей Вселенной (1.0 = наше значение)")
 
-alpha_val = st.sidebar.slider(
-    "α (постоянная тонкой структуры)",
-    min_value=0.003,
-    max_value=0.05,
-    value=1/137.036,
-    step=0.0005,
-    format="%.4f",
-    help="1/137 ≈ наша Вселенная",
+fix_e = st.sidebar.checkbox(
+    "Фиксировать заряд e (ε₀ и ħ влияют на α)",
+    value=False,
+    help="При включении α = e²/(4π ε₀ ℏ c) — меняя ε₀ или ħ, вы меняете α",
 )
+
+if fix_e:
+    alpha_val = None  # будет вычислено из e, ε₀, ħ
+else:
+    alpha_val = st.sidebar.slider(
+        "α (постоянная тонкой структуры)",
+        min_value=0.003,
+        max_value=0.05,
+        value=1/137.036,
+        step=0.0005,
+        format="%.4f",
+        help="1/137 ≈ наша Вселенная",
+    )
 
 m_p_ratio = st.sidebar.slider("m_p / m_p₀ (масса протона)", 0.3, 3.0, 1.0, 0.1)
 m_e_ratio = st.sidebar.slider("m_e / m_e₀ (масса электрона)", 0.3, 3.0, 1.0, 0.1)
@@ -75,16 +84,30 @@ landscape_res = st.sidebar.slider("Разрешение ландшафта", 15,
 
 # === Расчёт пригодности ===
 try:
-    u = UniverseParameters(
-        name="Custom",
-        alpha=alpha_val,
-        m_p=m_p_ratio * const.m_p,
-        m_e=m_e_ratio * const.m_e,
-        G=G_ratio * const.G,
-        c=c_ratio * const.c,
-        hbar=hbar_ratio * const.hbar,
-        epsilon_0=eps_ratio * const.epsilon_0,
-    )
+    if fix_e:
+        u = UniverseParameters(
+            name="Custom",
+            e=const.e,
+            fix_e=True,
+            m_p=m_p_ratio * const.m_p,
+            m_e=m_e_ratio * const.m_e,
+            G=G_ratio * const.G,
+            c=c_ratio * const.c,
+            hbar=hbar_ratio * const.hbar,
+            epsilon_0=eps_ratio * const.epsilon_0,
+        )
+        alpha_val = u.alpha  # для отображения
+    else:
+        u = UniverseParameters(
+            name="Custom",
+            alpha=alpha_val,
+            m_p=m_p_ratio * const.m_p,
+            m_e=m_e_ratio * const.m_e,
+            G=G_ratio * const.G,
+            c=c_ratio * const.c,
+            hbar=hbar_ratio * const.hbar,
+            epsilon_0=eps_ratio * const.epsilon_0,
+        )
     analyzer = UniverseAnalyzer(u)
     index, score, metrics = analyzer.calculate_habitability_index()
     error_msg = None
@@ -124,6 +147,9 @@ with col3:
     st.markdown(f"α = {alpha_val:.6f}")
     st.markdown(f"m_p/m_p₀ = {m_p_ratio:.2f}")
     st.markdown(f"m_e/m_e₀ = {m_e_ratio:.2f}")
+    if fix_e:
+        st.caption("α из e, ε₀, ħ")
+    st.markdown(f"ℏ/ℏ₀ = {hbar_ratio:.2f}, ε₀/ε₀₀ = {eps_ratio:.2f}")
 
 # === Пузырь жизни: 2D ландшафт ===
 if show_landscape and not error_msg:
@@ -184,7 +210,7 @@ if show_landscape and not error_msg:
     buf = io.BytesIO()
     plt.savefig(buf, format='png', dpi=120, bbox_inches='tight')
     buf.seek(0)
-    st.image(buf, use_container_width=True)
+    st.image(buf, width="stretch")
     plt.close()
 
 st.markdown("---")

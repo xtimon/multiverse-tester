@@ -306,7 +306,7 @@ def run_7d_optimizer():
         c_range=(0.2, 3.0),
         hbar_range=(0.2, 3.0),
         epsilon_0_range=(0.1, 5.0),
-        coarse_points=3,   # 3^7 = 2,187 (грубая сетка)
+        coarse_points=4,   # 4^7 = 16,384 — достаточно для оценки доли (3^7 = 2,187 было 0%)
         zoom_points=4,     # 4^7 = 16,384 (рефайнмент)
         zoom_fraction=0.25,
         max_refinements=2

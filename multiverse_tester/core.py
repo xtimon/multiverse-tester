@@ -36,7 +36,11 @@ class UniverseParameters:
     
     def __init__(self, name="Our Universe", alpha=None, e=None, m_p=None,
                  m_e=None, hbar=None, c=None, G=None, epsilon_0=None, k_B=None,
-                 H_0=None, Lambda=None):
+                 H_0=None, Lambda=None, fix_e=False):
+        """
+        fix_e: если True, при заданных e, epsilon_0, hbar — α вычисляется из α = e²/(4π ε₀ ℏ c).
+        Тогда ε₀ и ħ влияют на пригодность через α.
+        """
         self.name = name
         self.const = UniversalConstants()
         
@@ -52,7 +56,11 @@ class UniverseParameters:
         self.epsilon_0 = epsilon_0 if epsilon_0 else self.const.epsilon_0
         self.m_e = m_e if m_e else self.const.m_e
         
-        if alpha is not None:
+        if fix_e and e is not None:
+            # Фиксируем заряд: α = e²/(4π ε₀ ℏ c) — ε₀ и ħ влияют на α
+            self.e = e
+            self.alpha = (e**2) / (4 * math.pi * self.epsilon_0 * self.hbar * self.c)
+        elif alpha is not None:
             self.alpha = alpha
             self.e = math.sqrt(alpha * 4 * math.pi * self.epsilon_0 * self.hbar * self.c)
         elif e is not None:
@@ -102,12 +110,17 @@ class AtomicPhysics:
     def fine_structure_effects(self) -> Dict[str, float]:
         a0 = self.bohr_radius()
         λ_c = self.compton_wavelength()
+        # Отношение атомного масштаба к планковской длине (зависит от ħ при фикс. α)
+        # a0/l_planck ∝ sqrt(ℏ) — при малом ħ квантовая гравитация влияет на атомы
+        l_planck = math.sqrt(self.u.hbar * self.u.G / self.u.c**3)
+        a0_over_l_planck = a0 / l_planck if l_planck > 0 else 1e30
         return {
             'a0': a0,
             'a0_norm': a0 / 5.29e-11,
             'a0_over_λc': a0 / λ_c,
             'E_bind': self.rydberg_ev(),
-            'E_bind_norm': self.rydberg_ev() / 13.6
+            'E_bind_norm': self.rydberg_ev() / 13.6,
+            'a0_over_l_planck': a0_over_l_planck,
         }
 
 # ==================== ЯДЕРНАЯ ФИЗИКА ====================
@@ -630,16 +643,29 @@ class UniverseAnalyzer:
         
         metrics = {}
         
-        # 1. Атомная структура
+        # 1. Атомная структура (a0/λc ~ 1/α; E_bind ~ m_e — энергия ионизации H)
         atomic_effects = self.atomic.fine_structure_effects()
         a0_ratio = atomic_effects['a0_over_λc']
+        E_bind_norm = atomic_effects['E_bind_norm']  # Rydberg/13.6, зависит от m_e
         
-        if 10 < a0_ratio < 1000:
+        if 10 < a0_ratio < 1000 and 0.5 < E_bind_norm < 2.0:
             metrics['atomic'] = 1.0
-        elif 1 < a0_ratio < 10000:
+        elif 1 < a0_ratio < 10000 and 0.2 < E_bind_norm < 5.0:
             metrics['atomic'] = 0.5
         else:
             metrics['atomic'] = 0.0
+        
+        # 1b. Квантовый масштаб: a0/l_planck ∝ sqrt(ℏ) — при малом ħ квантовая гравитация
+        # влияет на атомы. Нужно a0 >> l_planck.
+        a0_over_lP = atomic_effects['a0_over_l_planck']
+        ref_ratio = 5.29e-11 / 1.616e-35  # ~3.3e24 в нашей Вселенной
+        q_ratio = a0_over_lP / ref_ratio if ref_ratio > 0 else 1.0
+        if q_ratio > 0.3:
+            metrics['quantum_scale'] = 1.0
+        elif q_ratio > 0.1:
+            metrics['quantum_scale'] = 0.5
+        else:
+            metrics['quantum_scale'] = 0.0
         
         # 2. Химия (значение α)
         α = self.u.alpha
@@ -720,16 +746,17 @@ class UniverseAnalyzer:
         
         # Вычисляем общий индекс
         weights = {
-            'atomic': 0.14,
-            'chemistry': 0.19,
-            'nuclear': 0.14,
-            'carbon': 0.14,
+            'atomic': 0.13,
+            'chemistry': 0.18,
+            'nuclear': 0.13,
+            'carbon': 0.13,
             'heavy_elements': 0.09,
             'fusion': 0.09,
             'supernova': 0.05,
             'r_process': 0.09,
-            'cosmology_H': 0.04,
-            'cosmology_Lambda': 0.04
+            'quantum_scale': 0.05,  # зависит от ħ (a0/l_planck ∝ sqrt(ℏ))
+            'cosmology_H': 0.03,
+            'cosmology_Lambda': 0.03
         }
         
         total_score = sum(metrics.get(k, 0) * weights[k] for k in weights)
