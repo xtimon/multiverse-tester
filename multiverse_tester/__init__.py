@@ -11,6 +11,7 @@ Email: tisanov@yahoo.com
 __version__ = "1.0.0"
 
 from multiverse_tester.core import (
+    ALPHA_OUR,
     UniversalConstants,
     UniverseParameters,
     AtomicPhysics,

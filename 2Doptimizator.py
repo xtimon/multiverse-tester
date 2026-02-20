@@ -7,7 +7,21 @@ from typing import Tuple, List, Dict, Callable, Optional
 import warnings
 warnings.filterwarnings('ignore')
 
-from multiverse_tester import UniverseParameters, UniverseAnalyzer, UniversalConstants
+from multiverse_tester import UniverseParameters, UniverseAnalyzer, UniversalConstants, ALPHA_OUR
+
+
+def score_to_category(score: float) -> float:
+    """Преобразует индекс пригодности (0–1) в категорию (0–4)."""
+    if score > 0.8:
+        return 4.0
+    if score > 0.6:
+        return 3.0
+    if score > 0.3:
+        return 2.0
+    if score > 0.1:
+        return 1.0
+    return 0.0
+
 
 # ==================== ОПТИМИЗАТОР ВСЕЛЕННОЙ ====================
 
