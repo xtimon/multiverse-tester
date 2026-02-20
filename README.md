@@ -79,8 +79,8 @@ multiverse-analyze   # основной анализ с графиком
 Или локально:
 
 ```bash
-pip install streamlit   # или: pip install ".[demo]"
-streamlit run streamlit_demo.py
+pip install ".[demo]"    # streamlit входит в demo
+multiverse-demo          # или: streamlit run -m multiverse_tester.streamlit_demo
 ```
 
 Откройте браузер и исследуйте «пузырь жизни» — меняйте ползунки (α, m_p, m_e, G, c, ħ, ε₀) и наблюдайте, как меняется пригодность вселенной. Ландшафт показывает область пригодности в плоскости (α, m_p).
@@ -88,22 +88,19 @@ streamlit run streamlit_demo.py
 ### Пакетный запуск всех оптимизаторов
 
 ```bash
-python run_all_optimizers.py   # 2D→10D, отчёт в reports/
+multiverse-run-optimizers   # или: python -m multiverse_tester.run_all_optimizers
+# 2D→10D, отчёт в reports/
 ```
 
-### Запуск скриптов напрямую
+### Оптимизаторы в коде
 
-```bash
-python main.py           # Основной анализ
-python 2Doptimizator.py  # 2D оптимизация
-python 3Doptimizator.py  # 3D ландшафт
-python 4Doptimizator.py  # 4D гиперобъём
-python 5Doptimizator.py  # 5D
-python 6D_optimizator.py # 6D
-python 7D_optimizator.py # 7D (α, m_p, m_e, G, c, ħ, ε₀)
-python 8D_optimizator.py # 8D (α, m_p, m_e, G, c, ħ, ε₀, k_B)
-python 9D_optimizator.py  # 9D (+ H₀)
-python 10D_optimizator.py # 10D (+ Λ)
+```python
+from multiverse_tester.optimizers import (
+    UniverseOptimizer,      # 2D (α, m_p)
+    HyperVolume5D,         # 5D
+    HyperVolume10D,        # 10D
+    plot_nd_2d_slice,
+)
 ```
 
 ## Отчёты

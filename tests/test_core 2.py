@@ -116,6 +116,16 @@ class TestHabitabilityIndex:
         assert HabitabilityIndex.HABITABLE.name == "HABITABLE"
 
 
+@pytest.fixture
+def our_universe():
+    return UniverseParameters()
+
+
+@pytest.fixture
+def our_analyzer(our_universe):
+    return UniverseAnalyzer(our_universe)
+
+
 class TestUniverseAnalyzer:
     """Tests for UniverseAnalyzer."""
 

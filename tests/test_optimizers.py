@@ -1,10 +1,5 @@
 """Тесты для оптимизаторов пригодности вселенных."""
 
-import importlib.util
-import sys
-from pathlib import Path
-
-# Использовать non-interactive бэкенд до импорта matplotlib в оптимизаторах
 import os
 os.environ.setdefault("MPLBACKEND", "Agg")
 
@@ -17,19 +12,11 @@ from multiverse_tester import (
     UniversalConstants,
     ALPHA_OUR,
 )
-
-
-def _load_optimizer_module(name: str, filename: str):
-    """Динамически загружает модуль оптимизатора (имя файла может начинаться с цифры)."""
-    root = Path(__file__).resolve().parent.parent
-    path = root / filename
-    if not path.exists():
-        pytest.skip(f"Оптимизатор {filename} не найден")
-    spec = importlib.util.spec_from_file_location(name, path)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[name] = mod
-    spec.loader.exec_module(mod)
-    return mod
+from multiverse_tester.optimizers import (
+    UniverseOptimizer,
+    OptimizationVisualizer,
+    HyperVolume6D,
+)
 
 
 # ==================== 2D ОПТИМИЗАТОР ====================
@@ -40,8 +27,7 @@ class Test2DOptimizer:
 
     @pytest.fixture
     def opt2d(self):
-        mod = _load_optimizer_module("opt2d", "2Doptimizator.py")
-        return mod.UniverseOptimizer()
+        return UniverseOptimizer()
 
     def test_objective_function_returns_float(self, opt2d):
         """Целевая функция возвращает число в [0, 1]."""
@@ -181,13 +167,11 @@ class TestRunAllOptimizers2D:
     """Тесты для run_2d_optimizer из run_all_optimizers."""
 
     def test_run_2d_optimizer_returns_dict(self):
-        mod = _load_optimizer_module("run_all", "run_all_optimizers.py")
-        # Подавляем вывод и сохранение графиков
+        from multiverse_tester.run_all_optimizers import run_2d_optimizer
         import io
         import contextlib
-        f = io.StringIO()
-        with contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
-            results = mod.run_2d_optimizer()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            results = run_2d_optimizer()
 
         assert isinstance(results, dict)
         assert "opt_alpha" in results
@@ -198,12 +182,11 @@ class TestRunAllOptimizers2D:
         assert "our_score" in results
 
     def test_run_2d_opt_alpha_in_range(self):
-        mod = _load_optimizer_module("run_all", "run_all_optimizers.py")
+        from multiverse_tester.run_all_optimizers import run_2d_optimizer
         import io
         import contextlib
-        f = io.StringIO()
-        with contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
-            results = mod.run_2d_optimizer()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            results = run_2d_optimizer()
 
         assert 1 / 300 <= results["opt_alpha"] <= 1 / 30
         assert 0 <= results["opt_alpha_score"] <= 1
@@ -216,8 +199,7 @@ class Test6DOptimizer:
     """Тесты для HyperVolume6D (уменьшенная сетка для скорости)."""
 
     def test_6d_grid_generation(self):
-        mod = _load_optimizer_module("opt6d", "6D_optimizator.py")
-        hv = mod.HyperVolume6D()
+        hv = HyperVolume6D()
         import io
         import contextlib
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
@@ -237,9 +219,8 @@ class TestOptimizationVisualizer:
 
     @pytest.fixture
     def visualizer(self):
-        mod = _load_optimizer_module("opt2d", "2Doptimizator.py")
-        optimizer = mod.UniverseOptimizer()
-        return mod.OptimizationVisualizer(optimizer)
+        optimizer = UniverseOptimizer()
+        return OptimizationVisualizer(optimizer)
 
     def test_visualizer_creation(self, visualizer):
         """Визуализатор создаётся с оптимизатором."""

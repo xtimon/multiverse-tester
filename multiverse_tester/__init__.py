@@ -22,6 +22,17 @@ from multiverse_tester.core import (
     MultiverseDynamicsExplorer,
 )
 
+from multiverse_tester.optimizers import (
+    UniverseOptimizer,
+    HyperVolume4D,
+    HyperVolume5D,
+    HyperVolume6D,
+    HyperVolume7D,
+    HyperVolume8D,
+    HyperVolume9D,
+    HyperVolume10D,
+)
+
 __all__ = [
     "__version__",
     "ALPHA_OUR",
@@ -33,4 +44,12 @@ __all__ = [
     "HabitabilityIndex",
     "UniverseAnalyzer",
     "MultiverseDynamicsExplorer",
+    "UniverseOptimizer",
+    "HyperVolume4D",
+    "HyperVolume5D",
+    "HyperVolume6D",
+    "HyperVolume7D",
+    "HyperVolume8D",
+    "HyperVolume9D",
+    "HyperVolume10D",
 ]
