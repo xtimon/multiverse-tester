@@ -23,6 +23,7 @@ from multiverse_tester.core import (
 
 __all__ = [
     "__version__",
+    "ALPHA_OUR",
     "UniversalConstants",
     "UniverseParameters",
     "AtomicPhysics",

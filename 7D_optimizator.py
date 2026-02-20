@@ -142,123 +142,43 @@ class HyperVolume7D:
         
         return self.results
     
-    def generate_7d_adaptive(self,
-                             alpha_range: Tuple[float, float] = (1/400, 1/15),
-                             m_p_range: Tuple[float, float] = (0.1, 5.0),
-                             m_e_range: Tuple[float, float] = (0.1, 5.0),
-                             G_range: Tuple[float, float] = (0.05, 10.0),
-                             c_range: Tuple[float, float] = (0.2, 3.0),
-                             hbar_range: Tuple[float, float] = (0.2, 3.0),
-                             epsilon_0_range: Tuple[float, float] = (0.1, 5.0),
-                             coarse_points: int = 3,
-                             zoom_points: int = 5,
-                             zoom_fraction: float = 0.25,
-                             max_refinements: int = 2) -> Dict:
+    def generate_7d_adaptive(
+        self,
+        alpha_range: Tuple[float, float] = (1 / 400, 1 / 15),
+        m_p_range: Tuple[float, float] = (0.1, 5.0),
+        m_e_range: Tuple[float, float] = (0.1, 5.0),
+        G_range: Tuple[float, float] = (0.05, 10.0),
+        c_range: Tuple[float, float] = (0.2, 3.0),
+        hbar_range: Tuple[float, float] = (0.2, 3.0),
+        epsilon_0_range: Tuple[float, float] = (0.1, 5.0),
+        coarse_points: int = 3,
+        zoom_points: int = 5,
+        zoom_fraction: float = 0.25,
+        max_refinements: int = 2,
+    ) -> Dict:
         """
         Адаптивный поиск: грубая сетка → рефайнмент вокруг лучших точек.
-        
-        1. Грубая фаза: coarse_points^7 точек по всему пространству
-        2. Фаза зума: вокруг глобального максимума строится гиперкуб
-           [best - zoom_fraction*range, best + zoom_fraction*range],
-           в нём сетка zoom_points^7
-        3. При max_refinements=2 — повторный зум вокруг нового оптимума
+        Делегирует в optimizer_base.generate_nd_adaptive.
         """
-        def _run_grid(ranges: List[Tuple[float, float]], pts: int) -> Tuple[np.ndarray, np.ndarray, float, List[float]]:
-            """Возвращает (сетки, score_flat, best_score, best_coords)"""
-            (ar, mpr, mer, Gr, cr, hbr, epsr) = ranges
-            grids = [
-                np.linspace(ar[0], ar[1], pts),
-                np.linspace(mpr[0], mpr[1], pts),
-                np.linspace(mer[0], mer[1], pts),
-                np.linspace(Gr[0], Gr[1], pts),
-                np.linspace(cr[0], cr[1], pts),
-                np.linspace(hbr[0], hbr[1], pts),
-                np.linspace(epsr[0], epsr[1], pts),
-            ]
-            total = pts ** 7
-            scores = np.zeros(total)
-            idx = 0
-            for i0 in range(pts):
-                for i1 in range(pts):
-                    for i2 in range(pts):
-                        for i3 in range(pts):
-                            for i4 in range(pts):
-                                for i5 in range(pts):
-                                    for i6 in range(pts):
-                                        scores[idx] = self._eval_point(
-                                            grids[0][i0], grids[1][i1], grids[2][i2],
-                                            grids[3][i3], grids[4][i4], grids[5][i5], grids[6][i6]
-                                        )
-                                        idx += 1
-                                        if idx % 2000 == 0:
-                                            print(f"   Прогресс: {idx}/{total} ({100*idx/total:.1f}%)")
-            best_idx = np.argmax(scores)
-            multi_idx = np.unravel_index(best_idx, (pts,) * 7)
-            best_coords = [grids[d][multi_idx[d]] for d in range(7)]
-            return grids, scores, float(scores[best_idx]), best_coords
-        
-        def _zoom_ranges(best: List[float], ranges: List[Tuple[float, float]], frac: float) -> List[Tuple[float, float]]:
-            return [
-                (max(r[0], b - frac * (r[1] - r[0])), min(r[1], b + frac * (r[1] - r[0])))
-                for (r, b) in zip(ranges, best)
-            ]
-        
-        full_ranges = [alpha_range, m_p_range, m_e_range, G_range, c_range, hbar_range, epsilon_0_range]
-        
-        # Фаза 1: грубая сетка
-        labels = ['α', 'm_p', 'm_e', 'G', 'c', 'ħ', 'ε₀']
-        print(f"\n🔮 АДАПТИВНЫЙ 7D: Фаза 1 — грубая сетка {coarse_points}^7 = {coarse_points**7} точек")
-        for lbl, (lo, hi) in zip(labels, full_ranges):
-            print(f"   {lbl}: [{lo:.4f}, {hi:.4f}]")
-        
-        grids1, scores1, best_score, best_coords = _run_grid(full_ranges, coarse_points)
-        
-        # Оценка доли пригодного (для отчёта)
-        self.results['score_7d'] = scores1.reshape((coarse_points,) * 7)
-        self.results['alphas'] = grids1[0]
-        self.results['m_p_ratios'] = grids1[1]
-        self.results['m_e_ratios'] = grids1[2]
-        self.results['G_ratios'] = grids1[3]
-        self.results['c_ratios'] = grids1[4]
-        self.results['hbar_ratios'] = grids1[5]
-        self.results['eps_ratios'] = grids1[6]
-        
-        # Фазы рефайнмента
-        for ref in range(max_refinements - 1):
-            zoom_ranges = _zoom_ranges(best_coords, full_ranges, zoom_fraction)
-            total_zoom = zoom_points ** 7
-            print(f"\n   Фаза {ref+2}: зум вокруг оптимума ({zoom_points}^7 = {total_zoom} точек)")
-            
-            _, scores_zoom, zoom_score, zoom_coords = _run_grid(zoom_ranges, zoom_points)
-            
-            if zoom_score > best_score:
-                best_score = zoom_score
-                best_coords = zoom_coords
-                print(f"   → Новый оптимум: score = {best_score:.4f}")
-            else:
-                print(f"   → Оптимум стабилен (zoom score = {zoom_score:.4f})")
-        
-        print(f"\n✅ АДАПТИВНЫЙ ОПТИМУМ (7D):")
-        print(f"   α = {best_coords[0]:.6f}")
-        print(f"   m_p/m_p₀ = {best_coords[1]:.3f}")
-        print(f"   m_e/m_e₀ = {best_coords[2]:.3f}")
-        print(f"   G/G₀ = {best_coords[3]:.3f}")
-        print(f"   c/c₀ = {best_coords[4]:.3f}")
-        print(f"   ħ/ħ₀ = {best_coords[5]:.3f}")
-        print(f"   ε₀/ε₀₀ = {best_coords[6]:.3f}")
-        print(f"   Индекс пригодности = {best_score:.3f}")
-        
-        self.results.update({
-            'best_alpha': best_coords[0],
-            'best_m_p': best_coords[1],
-            'best_m_e': best_coords[2],
-            'best_G': best_coords[3],
-            'best_c': best_coords[4],
-            'best_hbar': best_coords[5],
-            'best_eps': best_coords[6],
-            'best_score': best_score,
-        })
-        
+        ranges = [
+            alpha_range,
+            m_p_range,
+            m_e_range,
+            G_range,
+            c_range,
+            hbar_range,
+            epsilon_0_range,
+        ]
+        self.results = generate_nd_adaptive(
+            self.const,
+            dim=7,
+            ranges=ranges,
+            coarse_points=coarse_points,
+            zoom_points=zoom_points,
+            zoom_fraction=zoom_fraction,
+            max_refinements=max_refinements,
+            score_key='score_7d',
+        )
         return self.results
     
     def calculate_7d_volume(self, threshold: float = 0.6) -> Dict:

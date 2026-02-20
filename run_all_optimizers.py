@@ -39,22 +39,49 @@ def _save_fig_instead_of_show():
 plt.show = _save_fig_instead_of_show
 
 
+from multiverse_tester import ALPHA_OUR
+
+
+def _plot_slice_2d(ax, alphas, m_p_ratios, slice_2d, title: str):
+    """Рисует 2D heatmap (α, m_p)."""
+    im = ax.imshow(
+        slice_2d.T,
+        aspect='auto',
+        extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
+        origin='lower',
+        cmap='RdYlGn',
+        vmin=0,
+        vmax=1,
+    )
+    ax.set_xlabel('α')
+    ax.set_ylabel('m_p / m_p₀')
+    ax.set_title(title)
+    ax.axvline(ALPHA_OUR, color='gray', linestyle='--', alpha=0.5)
+    plt.colorbar(im, ax=ax, label='Habitability')
+    return im
+
+
 def run_2d_optimizer():
     """Запуск 2D оптимизатора"""
     from multiverse_tester import UniverseParameters, UniverseAnalyzer, UniversalConstants
     from scipy.optimize import minimize_scalar, differential_evolution
-    
+
     results = {}
     const = UniversalConstants()
-    
+
     # 1. Оптимизация α
     def objective_alpha(x):
         u = UniverseParameters(alpha=x)
         analyzer = UniverseAnalyzer(u)
         _, score, _ = analyzer.calculate_habitability_index()
         return 1.0 - score
-    
-    res_alpha = minimize_scalar(objective_alpha, bounds=(1/300, 1/30), method='bounded', options={'xatol': 1e-6})
+
+    res_alpha = minimize_scalar(
+        objective_alpha,
+        bounds=(1/300, 1/30),
+        method='bounded',
+        options={'xatol': 1e-6},
+    )
     results['opt_alpha'] = res_alpha.x
     results['opt_alpha_score'] = 1.0 - res_alpha.fun
     
@@ -65,9 +92,16 @@ def run_2d_optimizer():
         analyzer = UniverseAnalyzer(u)
         _, score, _ = analyzer.calculate_habitability_index()
         return 1.0 - score
-    
-    res_2d = differential_evolution(objective_2d, [(1/300, 1/30), (0.5, 2.0)], 
-                                    strategy='best1bin', popsize=25, maxiter=40, tol=1e-6, seed=42)
+
+    res_2d = differential_evolution(
+        objective_2d,
+        [(1/300, 1/30), (0.5, 2.0)],
+        strategy='best1bin',
+        popsize=25,
+        maxiter=40,
+        tol=1e-6,
+        seed=42,
+    )
     results['opt_alpha_2d'] = res_2d.x[0]
     results['opt_m_p'] = res_2d.x[1]
     results['opt_2d_score'] = 1.0 - res_2d.fun
@@ -78,8 +112,9 @@ def run_2d_optimizer():
     _, results['our_score'], results['our_metrics'] = our_analyzer.calculate_habitability_index()
     
     # 4. Grid search (уменьшенная сетка)
-    alphas = __import__('numpy').linspace(1/300, 1/30, 30)
-    m_p_ratios = __import__('numpy').linspace(0.5, 2.0, 20)
+    import numpy as np
+    alphas = np.linspace(1/300, 1/30, 30)
+    m_p_ratios = np.linspace(0.5, 2.0, 20)
     score_map = []
     for alpha in alphas:
         row = []
@@ -89,25 +124,17 @@ def run_2d_optimizer():
                 a = UniverseAnalyzer(u)
                 _, s, _ = a.calculate_habitability_index()
                 row.append(s)
-            except:
+            except Exception:
                 row.append(0)
         score_map.append(row)
-    
-    score_map = __import__('numpy').array(score_map)
+    score_map = np.array(score_map)
     habitable = score_map > 0.6
     results['habitable_fraction_2d'] = habitable.sum() / habitable.size
     
     # Figure: 2D heatmap
     fig, ax = plt.subplots(figsize=(8, 6))
-    im = ax.imshow(score_map.T, aspect='auto',
-                   extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
-                   origin='lower', cmap='RdYlGn', vmin=0, vmax=1)
-    ax.set_xlabel('α')
-    ax.set_ylabel('m_p / m_p₀')
-    ax.set_title('2D Habitability Landscape (α, m_p)')
+    _plot_slice_2d(ax, alphas, m_p_ratios, score_map, '2D Habitability Landscape (α, m_p)')
     ax.axhline(1.0, color='gray', linestyle='--', alpha=0.5)
-    ax.axvline(1/137.036, color='gray', linestyle='--', alpha=0.5)
-    plt.colorbar(im, ax=ax, label='Habitability score')
     plt.tight_layout()
     plt.show()
     
@@ -144,13 +171,7 @@ def run_3d_optimizer():
     mid_k = points // 2
     slice_2d = score_3d[:, :, mid_k]
     fig, ax = plt.subplots(figsize=(8, 6))
-    im = ax.imshow(slice_2d.T, aspect='auto',
-                   extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
-                   origin='lower', cmap='RdYlGn', vmin=0, vmax=1)
-    ax.set_xlabel('α')
-    ax.set_ylabel('m_p / m_p₀')
-    ax.set_title(f'3D Slice: m_e/m_e₀ = {m_e_ratios[mid_k]:.2f}')
-    plt.colorbar(im, ax=ax, label='Habitability')
+    _plot_slice_2d(ax, alphas, m_p_ratios, slice_2d, f'3D Slice: m_e/m_e₀ = {m_e_ratios[mid_k]:.2f}')
     plt.tight_layout()
     plt.show()
     
@@ -201,13 +222,13 @@ def run_4d_optimizer():
     mid_k, mid_l = points // 2, points // 2
     slice_2d = score_4d[:, :, mid_k, mid_l]
     fig, ax = plt.subplots(figsize=(8, 6))
-    im = ax.imshow(slice_2d.T, aspect='auto',
-                   extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
-                   origin='lower', cmap='RdYlGn', vmin=0, vmax=1)
-    ax.set_xlabel('α')
-    ax.set_ylabel('m_p / m_p₀')
-    ax.set_title(f'4D Slice: m_e/m_e₀={m_e_ratios[mid_k]:.2f}, G/G₀={G_ratios[mid_l]:.2f}')
-    plt.colorbar(im, ax=ax, label='Habitability')
+    _plot_slice_2d(
+        ax,
+        alphas,
+        m_p_ratios,
+        slice_2d,
+        f'4D Slice: m_e/m_e₀={m_e_ratios[mid_k]:.2f}, G/G₀={G_ratios[mid_l]:.2f}',
+    )
     plt.tight_layout()
     plt.show()
     
@@ -312,27 +333,8 @@ def run_7d_optimizer():
         max_refinements=2
     )
     vol = hv.calculate_7d_volume(threshold=0.6)
+    _plot_nd_2d_slice(hv.results, 'score_7d', 7)
 
-    # Figure: 7D 2D slice (α, m_p) at middle of other dims
-    import numpy as np
-    score_7d = hv.results['score_7d']
-    pts = score_7d.shape[0]
-    mid = pts // 2
-    slice_2d = score_7d[:, :, mid, mid, mid, mid, mid]
-    alphas = hv.results['alphas']
-    m_p_ratios = hv.results['m_p_ratios']
-    fig, ax = plt.subplots(figsize=(8, 6))
-    im = ax.imshow(slice_2d.T, aspect='auto',
-                   extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
-                   origin='lower', cmap='RdYlGn', vmin=0, vmax=1,
-                   interpolation='bilinear')
-    ax.set_xlabel('α')
-    ax.set_ylabel('m_p / m_p₀')
-    ax.set_title(f'7D Slice: (α, m_p) | coarse {pts}×{pts}')
-    plt.colorbar(im, ax=ax, label='Habitability')
-    plt.tight_layout()
-    plt.show()
-    
     return {
         'best_alpha': results['best_alpha'],
         'best_m_p': results['best_m_p'],
@@ -369,27 +371,8 @@ def run_8d_optimizer():
         max_refinements=2
     )
     vol = hv.calculate_8d_volume(threshold=0.6)
+    _plot_nd_2d_slice(hv.results, 'score_8d', 8)
 
-    # Figure: 8D 2D slice (α, m_p) at middle of other dims
-    import numpy as np
-    score_8d = hv.results['score_8d']
-    pts = score_8d.shape[0]
-    mid = pts // 2
-    slice_2d = score_8d[:, :, mid, mid, mid, mid, mid, mid]
-    alphas = hv.results['alphas']
-    m_p_ratios = hv.results['m_p_ratios']
-    fig, ax = plt.subplots(figsize=(8, 6))
-    im = ax.imshow(slice_2d.T, aspect='auto',
-                   extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
-                   origin='lower', cmap='RdYlGn', vmin=0, vmax=1,
-                   interpolation='bilinear')
-    ax.set_xlabel('α')
-    ax.set_ylabel('m_p / m_p₀')
-    ax.set_title(f'8D Slice: (α, m_p) | coarse {pts}×{pts}')
-    plt.colorbar(im, ax=ax, label='Habitability')
-    plt.tight_layout()
-    plt.show()
-    
     return {
         'best_alpha': results['best_alpha'],
         'best_m_p': results['best_m_p'],
@@ -428,27 +411,8 @@ def run_9d_optimizer():
         max_refinements=2
     )
     vol = hv.calculate_9d_volume(threshold=0.6)
+    _plot_nd_2d_slice(hv.results, 'score_9d', 9)
 
-    # Figure: 9D 2D slice (α, m_p) at middle of other dims
-    import numpy as np
-    score_9d = hv.results['score_9d']
-    pts = score_9d.shape[0]
-    mid = pts // 2
-    slice_2d = score_9d[:, :, mid, mid, mid, mid, mid, mid, mid]
-    alphas = hv.results['alphas']
-    m_p_ratios = hv.results['m_p_ratios']
-    fig, ax = plt.subplots(figsize=(8, 6))
-    im = ax.imshow(slice_2d.T, aspect='auto',
-                   extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
-                   origin='lower', cmap='RdYlGn', vmin=0, vmax=1,
-                   interpolation='bilinear')
-    ax.set_xlabel('α')
-    ax.set_ylabel('m_p / m_p₀')
-    ax.set_title(f'9D Slice: (α, m_p) | coarse {pts}×{pts}')
-    plt.colorbar(im, ax=ax, label='Habitability')
-    plt.tight_layout()
-    plt.show()
-    
     return {
         'best_alpha': results['best_alpha'],
         'best_m_p': results['best_m_p'],
@@ -489,27 +453,8 @@ def run_10d_optimizer():
         max_refinements=2
     )
     vol = hv.calculate_10d_volume(threshold=0.6)
+    _plot_nd_2d_slice(hv.results, 'score_10d', 10)
 
-    # Figure: 10D 2D slice (α, m_p) at middle of other dims
-    import numpy as np
-    score_10d = hv.results['score_10d']
-    pts = score_10d.shape[0]
-    mid = pts // 2
-    slice_2d = score_10d[:, :, mid, mid, mid, mid, mid, mid, mid, mid]
-    alphas = hv.results['alphas']
-    m_p_ratios = hv.results['m_p_ratios']
-    fig, ax = plt.subplots(figsize=(8, 6))
-    im = ax.imshow(slice_2d.T, aspect='auto',
-                   extent=[alphas[0], alphas[-1], m_p_ratios[0], m_p_ratios[-1]],
-                   origin='lower', cmap='RdYlGn', vmin=0, vmax=1,
-                   interpolation='bilinear')
-    ax.set_xlabel('α')
-    ax.set_ylabel('m_p / m_p₀')
-    ax.set_title(f'10D Slice: (α, m_p) | coarse {pts}×{pts}')
-    plt.colorbar(im, ax=ax, label='Habitability')
-    plt.tight_layout()
-    plt.show()
-    
     return {
         'best_alpha': results['best_alpha'],
         'best_m_p': results['best_m_p'],

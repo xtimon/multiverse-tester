@@ -34,7 +34,7 @@ if __name__ == "__main__":
     result = explorer.results["alpha"]
     plt.figure(figsize=(10, 6))
     plt.plot(result["param_values"], result["habitability_scores"], "b.-", alpha=0.7)
-    plt.axvline(x=1 / 137.036, color="r", linestyle="--", label="Наша Вселенная")
+    plt.axvline(x=ALPHA_OUR, color="r", linestyle="--", label="Наша Вселенная")
     plt.xlabel("α (постоянная тонкой структуры)")
     plt.ylabel("Индекс пригодности")
     plt.title("Зависимость пригодности от α")

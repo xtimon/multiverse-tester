@@ -222,17 +222,7 @@ class UniverseOptimizer:
                     
                     score_map[i, j] = score
                     
-                    # Категория для цветовой карты
-                    if score > 0.8:
-                        category_map[i, j] = 4  # OPTIMAL
-                    elif score > 0.6:
-                        category_map[i, j] = 3  # HABITABLE
-                    elif score > 0.3:
-                        category_map[i, j] = 2  # MARGINAL
-                    elif score > 0.1:
-                        category_map[i, j] = 1  # HOSTILE
-                    else:
-                        category_map[i, j] = 0  # DEAD
+                    category_map[i, j] = score_to_category(score)
                         
                 except Exception as e:
                     score_map[i, j] = 0
@@ -343,7 +333,7 @@ class OptimizationVisualizer:
         plt.colorbar(im1, ax=ax1, label='Индекс пригодности')
         
         # Отмечаем нашу Вселенную
-        ax1.plot(1/137.036, 1.0, 'r*', markersize=15, label='Наша Вселенная')
+        ax1.plot(ALPHA_OUR, 1.0, 'r*', markersize=15, label='Наша Вселенная')
         
         # Отмечаем оптимальную
         ax1.plot(grid_result['best_alpha'], grid_result['best_m_p'], 
@@ -361,7 +351,7 @@ class OptimizationVisualizer:
         cbar.set_ticks([0.5, 1.5, 2.5, 3.5, 4.5])
         cbar.set_ticklabels(['DEAD', 'HOSTILE', 'MARGINAL', 'HABITABLE', 'OPTIMAL'])
         
-        ax2.plot(1/137.036, 1.0, 'r*', markersize=15, label='Наша Вселенная')
+        ax2.plot(ALPHA_OUR, 1.0, 'r*', markersize=15, label='Наша Вселенная')
         ax2.plot(grid_result['best_alpha'], grid_result['best_m_p'], 
                 'b*', markersize=15, label='Оптимальная')
         
@@ -479,7 +469,7 @@ if __name__ == "__main__":
     print("="*60)
     
     universes = [
-        UniverseParameters(name="🌍 Наша", alpha=1/137.036),
+        UniverseParameters(name="🌍 Наша", alpha=ALPHA_OUR),
         UniverseParameters(name=f"✨ Оптимальная α={opt_result['alpha']:.4f}", 
                           alpha=opt_result['alpha']),
         UniverseParameters(name=f"🌟 2D Оптимум α={opt_2d['alpha']:.4f}, m_p/m_p₀={opt_2d['m_p_ratio']:.2f}", 
@@ -497,7 +487,7 @@ if __name__ == "__main__":
     print("="*60)
     
     print(f"\n🌍 НАША ВСЕЛЕННАЯ:")
-    print(f"   α = {1/137.036:.6f}")
+    print(f"   α = {ALPHA_OUR:.6f}")
     print(f"   m_p/m_p₀ = 1.000")
     
     our_analyzer = UniverseAnalyzer(UniverseParameters())
@@ -519,7 +509,7 @@ if __name__ == "__main__":
     print(f"   Категория: {opt_2d['index']}")
     
     print(f"\n📈 КЛЮЧЕВЫЕ ВЫВОДЫ:")
-    print(f"   1. Оптимальная α ≈ {opt_result['alpha']:.4f} (наше значение {1/137.036:.4f})")
+    print(f"   1. Оптимальная α ≈ {opt_result['alpha']:.4f} (наше значение {ALPHA_OUR:.4f})")
     print(f"   2. Диапазон пригодности: α ∈ [{grid['alphas'][np.any(grid['score_map']>0.6, axis=1)].min():.4f}, "
           f"{grid['alphas'][np.any(grid['score_map']>0.6, axis=1)].max():.4f}]")
     print(f"   3. Оптимальная масса протона: m_p/m_p₀ ≈ {opt_2d['m_p_ratio']:.2f}")
