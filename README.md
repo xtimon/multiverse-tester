@@ -91,7 +91,7 @@ multiverse-optimize-10d
 
 ### Интерактивное веб-демо (Streamlit)
 
-**[🌌 Запустить демо онлайн](https://multiverse-tester-3sfbtfwmf3u4hnkdzu9big.streamlit.app)**
+**[🌌 Запустить демо онлайн](https://multiverse-tester.streamlit.app)**
 
 Или локально:
 
