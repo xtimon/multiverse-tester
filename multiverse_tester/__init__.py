@@ -52,4 +52,12 @@ __all__ = [
     "HyperVolume8D",
     "HyperVolume9D",
     "HyperVolume10D",
+    "H_alpha",
+    "find_peak",
+    "find_boundary",
+    "run_plateau_analysis",
+    "create_plateau_plot",
+    "PlateauAnalysis",
+    "THRESHOLDS",
+    "RANGES",
 ]
