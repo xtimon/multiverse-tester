@@ -7,7 +7,7 @@
 ## Установка
 
 ```bash
-pip install .
+pip install multiverse-tester
 ```
 
 С опциональной поддержкой изоповерхностей (scikit-image):
@@ -25,8 +25,6 @@ python -m build
 pip install twine
 twine upload dist/*
 ```
-
-**GitHub Actions:** CI запускается на push/PR. Публикация на PyPI — при создании release или push тега `v*`. Добавьте `PYPI_API_TOKEN` в Secrets репозитория.
 
 ### Запуск тестов
 
