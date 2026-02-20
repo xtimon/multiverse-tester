@@ -57,37 +57,13 @@ print(f"Категория: {index.name}")
 
 ### CLI
 
+После `pip install .` доступна команда:
+
 ```bash
-# Основной анализ
-multiverse-analyze
-
-# 2D оптимизация (α, m_p)
-multiverse-optimize-2d
-
-# 3D ландшафт (α, m_p, m_e)
-multiverse-optimize-3d
-
-# 4D гиперобъём (α, m_p, m_e, G)
-multiverse-optimize-4d
-
-# 5D (α, m_p, m_e, G, c)
-multiverse-optimize-5d
-
-# 6D (α, m_p, m_e, G, c, ħ)
-multiverse-optimize-6d
-
-# 7D (α, m_p, m_e, G, c, ħ, ε₀)
-multiverse-optimize-7d
-
-# 8D (α, m_p, m_e, G, c, ħ, ε₀, k_B)
-multiverse-optimize-8d
-
-# 9D (α, m_p, m_e, G, c, ħ, ε₀, k_B, H₀)
-multiverse-optimize-9d
-
-# 10D (+ Λ)
-multiverse-optimize-10d
+multiverse-analyze   # основной анализ с графиком
 ```
+
+Оптимизаторы 2D–10D запускаются скриптами из корня проекта (см. «Запуск скриптов напрямую» ниже).
 
 ### Интерактивное веб-демо (Streamlit)
 

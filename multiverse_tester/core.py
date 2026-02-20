@@ -520,15 +520,15 @@ class StellarNucleosynthesis:
         # При очень высокой плотности нейтронов
         # захват идет до нейтронно-избыточных ядер
         
-        # Положение линии капель нейтронов
+        # Положение линии капель нейтронов (от Fe до трансурановых)
         neutron_drip = []
         heavy_elements = []
         
-        for Z in range(26, 92):  # от Fe до U
+        for Z in range(26, 120):  # от Fe до трансурановых (Z > 92)
             N_max = self.nuclear.neutron_drip_line(Z)
             neutron_drip.append(N_max)
-            
-            # Оцениваем обилие трансурановых элементов
+
+            # Трансурановые элементы (Z > 92: Np, Pu, Am, ...)
             if Z > 92:
                 heavy_elements.append(Z)
         
@@ -613,7 +613,7 @@ class StellarNucleosynthesis:
             'C': results['triple_alpha']['rate_relative'],
             'O_Mg_Si': np.mean([r['relative_yield'] for r in results['alpha_process'][:5]]),
             'Fe_peak': results['carbon_burning']['rate_relative'] * results['supernova']['fe_core_mass'],
-            'heavy_r_process': len(results['r_process']) if results['r_process']['transuranic_elements'] > 0 else 0
+            'heavy_r_process': results['r_process']['transuranic_elements'] if results['r_process']['transuranic_elements'] > 0 else 0
         }
         
         results['element_production'] = element_production
