@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "multiverse-tester"
-version = "1.0.0"
+version = "0.1.0"
 description = "Симуляция пригодности вселенных для жизни при различных фундаментальных константах"
 readme = "README.md"
 license = {text = "MIT"}
