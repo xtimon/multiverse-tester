@@ -47,6 +47,12 @@ jobs:
         with:
           name: dist
 
+      - name: Prepare dist directory for PyPI
+        run: |
+          mkdir -p dist
+          mv *.whl *.tar.gz dist/ 2>/dev/null || true
+          ls -la dist/
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
